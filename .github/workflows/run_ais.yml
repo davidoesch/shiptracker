@@ -36,6 +36,8 @@ jobs:
     - name: Run Python script
       run: |
         python ais_ship_tracker_weather.py
+      env: # Set the secrets as env var
+        AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
      
     - name: Push CSV files to repo
       uses: github-actions-x/commit@v2.9
