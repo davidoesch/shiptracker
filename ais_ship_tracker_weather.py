@@ -277,7 +277,8 @@ async def connect_ais_stream():
     async with websockets.connect("wss://stream.aisstream.io/v0/stream") as websocket:
         subscribe_message = {
             "APIKey": api_key,
-            "BoundingBoxes": [[[-90, -180], [90, 180]]],
+            #"BoundingBoxes": [[[-90, -180], [90, 180]]], # Worldwide
+            "BoundingBoxes": config.BOUNDING_BOXES,
             "FiltersShipMMSI": config.FILTERS_SHIP_MMSI,
             "FilterMessageTypes": ["PositionReport"]
         }
