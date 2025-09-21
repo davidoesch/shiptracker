@@ -7,6 +7,8 @@
 FILTERS_SHIP_MMSI = ["244528000"]
 # Blue Satr ferry is: "241087000"
 #FILTERS_SHIP_MMSI = ["241087000"]
+# Yacht is: "241087000"
+#FILTERS_SHIP_MMSI = ["247360450"]
 
 # Maximum monitoring duration in minutes
 # How long to monitor the AIS stream before stopping
@@ -14,4 +16,4 @@ MAX_DURATION_MINUTES = 10
 
 # Time threshold in hours for duplicate entry filtering
 # Skip new entries if the latest entry is younger than this threshold
-TIME_THRESHOLD_HOURS = 1
+TIME_THRESHOLD_HOURS = 0.1

@@ -1,41 +1,41 @@
 {
   "PositionReport": {
-    "Cog": 253.3,
-    "CommunicationState": 3968,
-    "Latitude": 37.94094333333333,
-    "Longitude": 23.63304833333333,
-    "MessageID": 3,
-    "NavigationalStatus": 0,
+    "Cog": 360,
+    "CommunicationState": 2259,
+    "Latitude": 54.33569333333333,
+    "Longitude": 10.157361666666667,
+    "MessageID": 1,
+    "NavigationalStatus": 8,
     "PositionAccuracy": true,
-    "Raim": false,
-    "RateOfTurn": 127,
+    "Raim": true,
+    "RateOfTurn": -128,
     "RepeatIndicator": 0,
-    "Sog": 9.3,
+    "Sog": 0,
     "Spare": 0,
     "SpecialManoeuvreIndicator": 0,
-    "Timestamp": 6,
-    "TrueHeading": 257,
-    "UserID": 241087000,
+    "Timestamp": 34,
+    "TrueHeading": 511,
+    "UserID": 244528000,
     "Valid": true
   },
   "MetaData": {
-    "MMSI": 241087000,
-    "MMSI_String": 241087000,
-    "ShipName": "BLUE STAR DELOS",
-    "latitude": 37.94094333333333,
-    "longitude": 23.63304833333333,
-    "time_utc": "2025-09-21 10:23:07.241333162 +0000 UTC"
+    "MMSI": 244528000,
+    "MMSI_String": 244528000,
+    "ShipName": "REGINA MARIS",
+    "latitude": 54.33569333333333,
+    "longitude": 10.157361666666667,
+    "time_utc": "2025-09-21 11:35:34.534665864 +0000 UTC"
   },
   "WeatherData": {
-    "wetterzustand": "Sonnig",
-    "luftdruck": 1017.2,
-    "windrichtung": 27,
-    "windstaerke": 10.9,
-    "bewoelkung": 4,
-    "lufttemperatur": 29.1,
+    "wetterzustand": "Bedeckt",
+    "luftdruck": 1007.4,
+    "windrichtung": 229,
+    "windstaerke": 23.5,
+    "bewoelkung": 100,
+    "lufttemperatur": 17.2,
     "niederschlag": 0.0,
-    "wassertemperatur": 25.9,
-    "wellenhoehe": 0.18
+    "wassertemperatur": 17.7,
+    "wellenhoehe": 0.4
   },
-  "timestamp_utc": "2025-09-21 10:23:07.241333162 +0000 UTC"
+  "timestamp_utc": "2025-09-21 11:35:34.534665864 +0000 UTC"
 }

@@ -276,17 +276,17 @@ async def connect_ais_stream():
 
     async with websockets.connect("wss://stream.aisstream.io/v0/stream") as websocket:
         subscribe_message = {
-            "APIKey": api_key,  # Required !
-            "BoundingBoxes": [[[-90, -180], [90, 180]]],  # Required!
-            "FiltersShipMMSI": config.FILTERS_SHIP_MMSI,  # Use config parameter
-            "FilterMessageTypes": ["PositionReport"]  # Optional!
+            "APIKey": api_key,
+            "BoundingBoxes": [[[-90, -180], [90, 180]]],
+            "FiltersShipMMSI": config.FILTERS_SHIP_MMSI,
+            "FilterMessageTypes": ["PositionReport"]
         }
 
         subscribe_message_json = json.dumps(subscribe_message)
         await websocket.send(subscribe_message_json)
 
         start_time = datetime.now(timezone.utc)
-        max_duration = timedelta(minutes=config.MAX_DURATION_MINUTES)  # Use config parameter
+        max_duration = timedelta(minutes=config.MAX_DURATION_MINUTES)
         found_result = False
 
         print(f"Starting AIS stream monitoring for {config.MAX_DURATION_MINUTES} minutes...")
@@ -295,13 +295,17 @@ async def connect_ais_stream():
         print(f"Start time: {start_time}")
 
         try:
-            async for message_json in websocket:
+            while True:
                 current_time = datetime.now(timezone.utc)
 
                 # Check if max duration has elapsed
                 if current_time - start_time > max_duration:
                     print(f"{config.MAX_DURATION_MINUTES} minutes elapsed. Stopping stream.")
                     break
+                try:
+                    message_json = await asyncio.wait_for(websocket.recv(), timeout=5)
+                except asyncio.TimeoutError:
+                    continue  # Check time again
 
                 message = json.loads(message_json)
                 message_type = message["MessageType"]
@@ -455,7 +459,8 @@ def print_field_meanings():
     print("=" * 60)
 
 if __name__ == "__main__":
-    print_field_meanings()
+    #print_field_meanings()
+    #main asyncio loop
     asyncio.run(connect_ais_stream())
     # Generate track GeoJSON (LineString)
     track_geojson = create_ship_track_geojson('ais_position_reports.csv', 'ship_tracks.geojson')
