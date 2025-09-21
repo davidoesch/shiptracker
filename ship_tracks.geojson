@@ -1,29 +1,4 @@
 {
   "type": "FeatureCollection",
-  "features": [
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          [
-            11.15735,
-            52.33571
-          ],
-          [
-            10.15735,
-            54.33571
-          ]
-        ]
-      },
-      "properties": {
-        "mmsi": 244528000,
-        "start_time": "2025-09-20T14:26:25.255201198+00:00",
-        "end_time": "2025-09-20T17:26:25.255201198+00:00",
-        "total_points": 2,
-        "track_type": "AIS_position_reports",
-        "navigational_status": 8
-      }
-    }
-  ]
+  "features": []
 }
