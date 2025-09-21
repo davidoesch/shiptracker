@@ -7,6 +7,30 @@
         "type": "LineString",
         "coordinates": [
           [
+            25.25704,
+            37.16548
+          ],
+          [
+            25.02088,
+            37.12387
+          ]
+        ]
+      },
+      "properties": {
+        "mmsi": 241087000,
+        "start_time": "2025-09-21T15:57:19.079542856+00:00",
+        "end_time": "2025-09-21T17:13:18.098040689+00:00",
+        "total_points": 2,
+        "track_type": "AIS_position_reports",
+        "navigational_status": 0
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
             11.15734,
             55.3357
           ],
