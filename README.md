@@ -33,8 +33,8 @@ See the [DEMO LIVETRACKING](https://davidoesch.github.io/shiptracker/index.html)
    ```
 
 2. **Set up AIS API key:**
-   - Set the `AISSTREAM_API_KEY` environment variable, or
-   - Add your API key to `secrets/aisstream.json`:
+- Create a free account at [AISstream](https://aisstream.io/accounts/register)
+- Add your API key to `secrets/aisstream.json` (you can find it in your AISstream account):
      ```json
      { "APIKey": "your_api_key_here" }
      ```
