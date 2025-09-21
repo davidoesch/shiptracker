@@ -1,20 +1,20 @@
 {
   "PositionReport": {
-    "Cog": 285.7,
-    "CommunicationState": 49161,
-    "Latitude": 37.14955666666666,
-    "Longitude": 24.909993333333333,
+    "Cog": 316.2,
+    "CommunicationState": 81936,
+    "Latitude": 37.32203333333334,
+    "Longitude": 24.3127,
     "MessageID": 1,
     "NavigationalStatus": 0,
     "PositionAccuracy": true,
     "Raim": false,
     "RateOfTurn": 0,
     "RepeatIndicator": 0,
-    "Sog": 22.8,
+    "Sog": 23.6,
     "Spare": 0,
     "SpecialManoeuvreIndicator": 0,
-    "Timestamp": 19,
-    "TrueHeading": 288,
+    "Timestamp": 22,
+    "TrueHeading": 315,
     "UserID": 241087000,
     "Valid": true
   },
@@ -22,20 +22,20 @@
     "MMSI": 241087000,
     "MMSI_String": 241087000,
     "ShipName": "BLUE STAR DELOS",
-    "latitude": 37.14955666666666,
-    "longitude": 24.909993333333333,
-    "time_utc": "2025-09-21 17:27:21.895992414 +0000 UTC"
+    "latitude": 37.32203333333334,
+    "longitude": 24.3127,
+    "time_utc": "2025-09-21 18:45:24.049343956 +0000 UTC"
   },
   "WeatherData": {
     "wetterzustand": "Sonnig",
-    "luftdruck": 1014.7,
-    "windrichtung": 354,
-    "windstaerke": 21.7,
+    "luftdruck": 1015.3,
+    "windrichtung": 345,
+    "windstaerke": 14.1,
     "bewoelkung": 0,
     "lufttemperatur": 23.5,
     "niederschlag": 0.0,
-    "wassertemperatur": 23.6,
-    "wellenhoehe": 1.56
+    "wassertemperatur": 24.0,
+    "wellenhoehe": 1.44
   },
-  "timestamp_utc": "2025-09-21 17:27:21.895992414 +0000 UTC"
+  "timestamp_utc": "2025-09-21 18:45:24.049343956 +0000 UTC"
 }
