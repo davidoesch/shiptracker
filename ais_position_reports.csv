@@ -1,0 +1,3 @@
+timestamp_utc,mmsi,latitude,longitude,cog,sog,true_heading,navigational_status,wetterzustand,luftdruck,windrichtung,windstaerke,bewoelkung,lufttemperatur,wassertemperatur,niederschlag,wellenhoehe
+2025-09-20 14:26:25.255201198 +0000 UTC,244528000,52.33571,11.15735,360,0,511,8,Bedeckt,1010.2,275,11.6,100,21.0,17.9,0.0,0.22
+2025-09-20 17:26:25.255201198 +0000 UTC,244528000,54.33571,10.15735,360,0,511,8,Bedeckt,1010.2,275,11.6,100,21.0,17.9,0.0,0.22

@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schiffs-Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+
+        .ship-popup {
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .ship-popup strong {
+            color: #2c5aa0;
+        }
+
+        .status-info {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading">Lade Schiffsdaten...</div>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Navigationsstatus-Mapping
+        const navigationStatus = {
+            0: "Unter Verwendung der Maschine",
+            1: "Vor Anker",
+            2: "Manövrierunfähig",
+            3: "Manövriereingeschränkt",
+            4: "Beeinträchtigt durch Tiefgang",
+            5: "Festgemacht",
+            6: "Auf Grund gelaufen",
+            7: "Fischfang",
+            8: "Unter Segel",
+            9: "Reserviert für HSC",
+            10: "Reserviert für WIG",
+            11: "Reserviert für zukünftige Nutzung",
+            12: "Reserviert für zukünftige Nutzung",
+            13: "Reserviert für zukünftige Nutzung",
+            14: "AIS-SART aktiv",
+            15: "Nicht verfügbar"
+        };
+
+        // Funktion zum Berechnen der Zeit seit dem letzten Update
+        function getTimeSinceUpdate(utcTimeString) {
+            const updateTime = new Date(utcTimeString.replace(' +0000 UTC', 'Z'));
+            const now = new Date();
+            const diffMs = now - updateTime;
+            const diffMinutes = Math.floor(diffMs / (1000 * 60));
+            const diffHours = Math.floor(diffMinutes / 60);
+
+            if (diffMinutes < 60) {
+                return `${diffMinutes} Minuten`;
+            } else if (diffHours < 24) {
+                return `${diffHours} Stunden`;
+            } else {
+                const diffDays = Math.floor(diffHours / 24);
+                return `${diffDays} Tage`;
+            }
+        }
+
+        // Funktion zum Bestimmen der Schiffsfarbe
+        function getShipColor(navStatus, cog, sog) {
+            // Grün wenn unterwegs (nicht vor Anker, Kurs verfügbar, Geschwindigkeit > 0)
+            if (navStatus !== 1 && cog !== 360 && sog > 0) {
+                return '#28a745'; // Grün
+            }
+            return '#fd7e14'; // Orange
+        }
+
+        // Funktion zum Erstellen eines Schiffs-SVG-Icons
+        function createShipIcon(heading, color) {
+            const rotation = heading === 511 ? 0 : heading;
+
+            const svgIcon = `
+                <svg xmlns:xlink="http://www.w3.org/1999/xlink" width="46" height="46" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="48" height="48" fill="white" fill-opacity="0.01"/>
+                    <g transform="rotate(${rotation - 45} 24 24)" fill="${color}" stroke="#000" stroke-width="1">
+                        <path d="M42 6L4 20.1383L24 24.0083L29.0052 44L42 6Z"/>
+                        <polygon points="24,24 29.7,,17 23.5,22"/>
+                    </g>
+                </svg>
+            `;
+
+            return L.divIcon({
+                html: svgIcon,
+                className: 'ship-icon',
+                iconSize: [46, 46],
+                iconAnchor: [23, 23],
+                popupAnchor: [0, -23]
+            });
+        }
+
+        // Beispiel-Track-Daten (um CORS-Probleme beim lokalen Testen zu vermeiden)
+        // In Produktion würden Sie diese durch die Funktion loadShipTracks() ersetzen
+        const exampleTracksData = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [
+                            [10.15735, 54.33571],
+                            [10.157351666666667, 54.33570666666667]
+                        ]
+                    },
+                    "properties": {
+                        "mmsi": 244528000,
+                        "start_time": "2025-09-20T14:26:25.255201198+00:00",
+                        "end_time": "2025-09-20T17:26:25.255201198+00:00",
+                        "total_points": 2,
+                        "track_type": "AIS_position_reports",
+                        "navigational_status": 8
+                    }
+                }
+            ]
+        };
+
+        // Funktion zum Laden der Schiffsspuren
+        async function loadShipTracks() {
+            try {
+                // Für lokales Testen: Verwende die Beispieldaten
+                if (window.location.protocol === 'file:') {
+                    console.log('Lokales Testen: Verwende Beispiel-Track-Daten');
+                    return exampleTracksData;
+                }
+
+                // Für Webserver: Lade echte GeoJSON-Datei
+                const response = await fetch('ship_tracks.geojson');
+                const tracksData = await response.json();
+                return tracksData;
+            } catch (error) {
+                console.error('Fehler beim Laden der Schiffsspuren:', error);
+                console.log('Fallback: Verwende Beispiel-Track-Daten');
+                return exampleTracksData;
+            }
+        }
+
+        // Beispieldaten - In der Realität würden Sie diese aus position_report.json laden
+        const shipData = {
+            "PositionReport": {
+                "Cog": 360,
+                "CommunicationState": 25192,
+                "Latitude": 54.33570666666667,
+                "Longitude": 10.157351666666667,
+                "MessageID": 1,
+                "NavigationalStatus": 8,
+                "PositionAccuracy": true,
+                "Raim": true,
+                "RateOfTurn": -128,
+                "RepeatIndicator": 0,
+                "Sog": 0,
+                "Spare": 0,
+                "SpecialManoeuvreIndicator": 0,
+                "Timestamp": 25,
+                "TrueHeading": 511,
+                "UserID": 244528000,
+                "Valid": true
+            },
+            "MetaData": {
+                "MMSI": 244528000,
+                "MMSI_String": 244528000,
+                "ShipName": "REGINA MARIS",
+                "latitude": 54.33570666666667,
+                "longitude": 10.157351666666667,
+                "time_utc": "2025-09-20 17:26:25.255201198 +0000 UTC"
+            },
+            "WeatherData": {
+                "wetterzustand": "Bedeckt",
+                "luftdruck": 1010.2,
+                "windrichtung": 275,
+                "windstaerke": 11.6,
+                "bewoelkung": 100,
+                "lufttemperatur": 21.0,
+                "niederschlag": 0.0,
+                "wassertemperatur": 17.9,
+                "wellenhoehe": 0.22
+            },
+            "timestamp_utc": "2025-09-20 17:26:25.255201198 +0000 UTC"
+        };
+
+        // Globale Variablen für Karte und Layer
+        let map;
+        let shipMarker;
+        let trackLayers = [];
+        let infoControl;
+
+        // Funktion zum Parsen der URL-Parameter
+        function getUrlParameters() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                popupzoom: params.get('popupzoom') !== 'false', // default true
+                zoom: parseInt(params.get('zoom')) || 12 // default 12
+            };
+        }
+
+        // URL-Parameter einmal beim Laden auslesen
+        const urlParams = getUrlParameters();
+
+        // Funktion zur Konvertierung von Windgeschwindigkeit (km/h) in Beaufort-Skala
+        function getBeaufortScale(windSpeedKmh) {
+            if (windSpeedKmh < 1) return "0 (Windstille)";
+            if (windSpeedKmh < 5) return "1 (Leiser Zug)";
+            if (windSpeedKmh < 11) return "2 (Leichte Brise)";
+            if (windSpeedKmh < 19) return "3 (Schwache Brise)";
+            if (windSpeedKmh < 28) return "4 (Mäßige Brise)";
+            if (windSpeedKmh < 38) return "5 (Frische Brise)";
+            if (windSpeedKmh < 49) return "6 (Starker Wind)";
+            if (windSpeedKmh < 61) return "7 (Steifer Wind)";
+            if (windSpeedKmh < 74) return "8 (Stürmischer Wind)";
+            if (windSpeedKmh < 88) return "9 (Sturm)";
+            if (windSpeedKmh < 102) return "10 (Schwerer Sturm)";
+            if (windSpeedKmh < 117) return "11 (Orkanartiger Sturm)";
+            return "12 (Orkan)";
+        }
+
+        // Funktion zur Berechnung der Distanz zwischen zwei Koordinaten in Seemeilen
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 3440.065; // Erdradius in Seemeilen (nautical miles)
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        // Funktion zur Berechnung der Gesamtlänge eines Tracks in Seemeilen
+        function calculateTrackLength(coordinates) {
+            let totalDistance = 0;
+            for (let i = 1; i < coordinates.length; i++) {
+                const [lon1, lat1] = coordinates[i - 1];
+                const [lon2, lat2] = coordinates[i];
+                totalDistance += calculateDistance(lat1, lon1, lat2, lon2);
+            }
+            return Math.round(totalDistance * 10) / 10; // Auf eine Dezimalstelle runden
+        }
+
+        // Funktion zur Karteninitialisierung (nur einmal aufgerufen)
+        async function initializeMap() {
+            try {
+                const posReport = shipData.PositionReport;
+
+                // Loading-Nachricht entfernen
+                document.getElementById('loading').style.display = 'none';
+
+                // Karte initialisieren und auf Schiffsposition zentrieren
+                map = L.map('map', {
+                    zoomControl: urlParams.popupzoom // Zoom-Controls basierend auf URL-Parameter
+                }).setView([posReport.Latitude, posReport.Longitude], urlParams.zoom);
+
+                // OpenStreetMap POSITRON
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    subdomains: 'abcd',
+                    maxZoom: 19
+                }).addTo(map);
+
+                // Schiffsspuren laden und anzeigen
+                await loadAndDisplayTracks();
+
+                // Schiffsdaten initial laden und anzeigen
+                updateShipData();
+
+            } catch (error) {
+                console.error('Fehler beim Initialisieren der Karte:', error);
+                document.getElementById('loading').innerHTML = 'Fehler beim Initialisieren der Karte';
+            }
+        }
+
+        // Funktion zum Laden und Anzeigen der Schiffsspuren
+        async function loadAndDisplayTracks() {
+            try {
+                const tracksData = await loadShipTracks();
+
+                // Schiffsspuren zur Karte hinzufügen (falls geladen)
+                if (tracksData) {
+                    tracksData.features.forEach(feature => {
+                        if (feature.geometry && feature.geometry.type === 'LineString') {
+                            // Koordinaten von GeoJSON [lon, lat] zu Leaflet [lat, lon] konvertieren
+                            const coordinates = feature.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+
+                            // Track-Informationen aus Properties extrahieren
+                            const trackInfo = feature.properties;
+                            const startTime = new Date(trackInfo.start_time).toLocaleDateString('de-DE');
+                            const endTime = new Date(trackInfo.end_time).toLocaleDateString('de-DE');
+
+                            // Länge der Fahrtroute in Seemeilen berechnen
+                            const trackLength = calculateTrackLength(feature.geometry.coordinates);
+
+                            // Weiße Linie für die Fahrtroute erstellen
+                            const trackLine = L.polyline(coordinates, {
+                                color: 'white',
+                                weight: 3,
+                                opacity: 0.8,
+                                dashArray: '5, 5' // Optional: gestrichelte Linie
+                            }).addTo(map);
+
+                            // Popup für die Fahrtroute
+                            const trackPopupContent = `
+                                <div class="ship-popup">
+                                    <h4 style="margin-top:0; color:#2c5aa0;">Fahrtroute</h4>
+                                    <strong>MMSI:</strong> ${trackInfo.mmsi}<br>
+                                    <strong>Startzeit:</strong> ${startTime}<br>
+                                    <strong>Endzeit:</strong> ${endTime}<br>
+                                    <strong>Länge:</strong> ${trackLength} Seemeilen<br>
+                                    <strong>Track-Typ:</strong> ${trackInfo.track_type}<br>
+                                    <strong>Navigationsstatus:</strong> ${navigationStatus[trackInfo.navigational_status] || 'Unbekannt'}
+                                </div>
+                            `;
+
+                            trackLine.bindPopup(trackPopupContent);
+
+                            // Track-Layer speichern für spätere Updates
+                            trackLayers.push(trackLine);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Fehler beim Laden der Tracks:', error);
+            }
+        }
+
+        // Funktion zum Aktualisieren der Schiffsdaten
+        function updateShipData() {
+            try {
+                // Hier würden Sie normalerweise die JSON-Datei laden:
+                // const response = await fetch('position_report.json');
+                // const shipData = await response.json();
+
+                const posReport = shipData.PositionReport;
+                const metaData = shipData.MetaData;
+                const weatherData = shipData.WeatherData;
+
+                // Schiffsfarbe bestimmen
+                const shipColor = getShipColor(posReport.NavigationalStatus, posReport.Cog, posReport.Sog);
+
+                // Schiffs-Icon erstellen
+                const shipIcon = createShipIcon(posReport.TrueHeading, shipColor);
+
+                // Status bestimmen
+                const statusText = navigationStatus[posReport.NavigationalStatus] || "Unbekannt";
+                const isMoving = posReport.NavigationalStatus !== 1 && posReport.Cog !== 360 && posReport.Sog > 0;
+                const currentStatus = isMoving ? "Unterwegs" : "Gestoppt/Vor Anker";
+
+                // Zeit seit letztem Update
+                const timeSinceUpdate = getTimeSinceUpdate(metaData.time_utc);
+
+                // Windgeschwindigkeit in Beaufort konvertieren
+                const windBeaufort = getBeaufortScale(weatherData.windstaerke);
+
+                // Popup-Inhalt erstellen
+                const popupContent = `
+                    <div class="ship-popup">
+                        <h3 style="margin-top:0; color:#2c5aa0;">${metaData.ShipName}</h3>
+                        <div class="status-info">
+                            <strong>MMSI:</strong> ${metaData.MMSI}<br>
+                            <strong>Status:</strong> ${currentStatus}<br>
+                            <strong>Navigationsstatus:</strong> ${statusText}<br>
+                            <strong>Geschwindigkeit:</strong> ${posReport.Sog} Knoten<br>
+                            <strong>Kurs:</strong> ${posReport.Cog === 360 ? 'Nicht verfügbar' : posReport.Cog + '°'}<br>                          
+                            <strong>Wetter:</strong> ${weatherData.wetterzustand}<br>
+                            <strong>Lufttemperatur:</strong> ${weatherData.lufttemperatur}°C<br>
+                            <strong>Wind:</strong> ${windBeaufort}<br>
+                            <strong>Wassertemperatur:</strong> ${weatherData.wassertemperatur} °C<br>
+                            <strong>Wellenhöhe:</strong> ${weatherData.wellenhoehe} m<br>
+                            <strong>Letztes Update:</strong> vor ${timeSinceUpdate}
+                        </div>
+                    </div>
+                `;
+
+                // Alten Schiffs-Marker entfernen, falls vorhanden
+                if (shipMarker) {
+                    map.removeLayer(shipMarker);
+                }
+
+                // Neuen Schiffs-Marker zur Karte hinzufügen
+                shipMarker = L.marker([posReport.Latitude, posReport.Longitude], {
+                    icon: shipIcon
+                }).addTo(map).bindPopup(popupContent);
+
+                // Popup automatisch öffnen (nur beim ersten Laden und wenn popupzoom aktiviert)
+                if (!infoControl && urlParams.popupzoom) {
+                    shipMarker.openPopup();
+                }
+
+                // Info-Control aktualisieren (immer anzeigen)
+                if (infoControl) {
+                    map.removeControl(infoControl);
+                }
+
+                // Zusätzliche Informationen als permanentes Control hinzufügen
+                infoControl = L.control({ position: 'topright' });
+                infoControl.onAdd = function (map) {
+                    const div = L.DomUtil.create('div', 'status-info');
+                    div.innerHTML = `
+                        <strong>${metaData.ShipName}</strong><br>
+                        Status: ${currentStatus}<br>
+                        Geschwindigkeit: ${posReport.Sog} kn<br>
+                        Wetter: ${weatherData.wetterzustand}<br>
+                        Wind: ${windBeaufort}<br>
+                        Update: vor ${timeSinceUpdate}
+                    `;
+                    div.style.background = 'rgba(255,255,255,0.95)';
+                    div.style.padding = '10px';
+                    div.style.borderRadius = '5px';
+                    div.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+                    div.style.fontSize = '12px';
+                    return div;
+                };
+                infoControl.addTo(map);
+
+            } catch (error) {
+                console.error('Fehler beim Aktualisieren der Schiffsdaten:', error);
+            }
+        }
+
+        // Karte initialisieren beim Laden der Seite
+        initializeMap();
+
+        // Automatische Updates alle 30 Sekunden (nur Schiffsdaten, nicht die Karte)
+        setInterval(updateShipData, 30000);
+    </script>
+</body>
+
+</html>
