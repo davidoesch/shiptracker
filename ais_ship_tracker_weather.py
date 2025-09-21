@@ -6,6 +6,7 @@ import os
 from datetime import datetime, timezone, timedelta
 import pandas as pd
 import aiohttp
+import config  # Import configuration
 
 def get_api_key():
     """
@@ -275,29 +276,31 @@ async def connect_ais_stream():
 
     async with websockets.connect("wss://stream.aisstream.io/v0/stream") as websocket:
         subscribe_message = {
-            "APIKey": api_key ,  # Required !
-            "BoundingBoxes": [[[-90, -180], [90, 180]]], # Required!
-            "FiltersShipMMSI": ["244528000"], # Optional!
-            "FilterMessageTypes": ["PositionReport"] # Optional!
+            "APIKey": api_key,  # Required !
+            "BoundingBoxes": [[[-90, -180], [90, 180]]],  # Required!
+            "FiltersShipMMSI": config.FILTERS_SHIP_MMSI,  # Use config parameter
+            "FilterMessageTypes": ["PositionReport"]  # Optional!
         }
 
         subscribe_message_json = json.dumps(subscribe_message)
         await websocket.send(subscribe_message_json)
 
         start_time = datetime.now(timezone.utc)
-        max_duration = timedelta(minutes=10)
+        max_duration = timedelta(minutes=config.MAX_DURATION_MINUTES)  # Use config parameter
         found_result = False
 
-        print(f"Starting AIS stream monitoring for 10 minutes...")
+        print(f"Starting AIS stream monitoring for {config.MAX_DURATION_MINUTES} minutes...")
+        print(f"Monitoring MMSI(s): {config.FILTERS_SHIP_MMSI}")
+        print(f"Time threshold: {config.TIME_THRESHOLD_HOURS} hour(s)")
         print(f"Start time: {start_time}")
 
         try:
             async for message_json in websocket:
                 current_time = datetime.now(timezone.utc)
 
-                # Check if 10 minutes have elapsed
+                # Check if max duration has elapsed
                 if current_time - start_time > max_duration:
-                    print("10 minutes elapsed. Stopping stream.")
+                    print(f"{config.MAX_DURATION_MINUTES} minutes elapsed. Stopping stream.")
                     break
 
                 message = json.loads(message_json)
@@ -329,7 +332,6 @@ async def connect_ais_stream():
                     if weather_data:
                         print(f"Wetter: {weather_data.get('wetterzustand', 'N/A')}, Temp: {weather_data.get('lufttemperatur', 'N/A')}°C, Wind: {weather_data.get('windstaerke', 'N/A')} km/h")
 
-
                     # Check if we should add this entry based on the filtering rules
                     should_add = True
 
@@ -344,7 +346,7 @@ async def connect_ais_stream():
                                 should_add = False
                                 print("Skipping entry: Current vessel not moving and latest entry was also stopped/anchored")
 
-                    # Check if latest entry is older than 1 hour
+                    # Check if latest entry is older than configured threshold
                     if latest_entry_time is not None:
                         # Parse the time_utc from the report (format: "2025-09-19 22:41:24.729345016 +0000 UTC")
                         try:
@@ -356,9 +358,11 @@ async def connect_ais_stream():
                             report_time = current_time
 
                         time_diff = report_time - latest_entry_time.replace(tzinfo=timezone.utc)
-                        if time_diff < timedelta(hours=1):
+                        time_threshold = timedelta(hours=config.TIME_THRESHOLD_HOURS)  # Use config parameter
+
+                        if time_diff < time_threshold:
                             should_add = False
-                            print(f"Skipping entry: Latest entry is only {time_diff} old (< 1 hour)")
+                            print(f"Skipping entry: Latest entry is only {time_diff} old (< {config.TIME_THRESHOLD_HOURS} hour(s))")
 
                     if should_add:
 
@@ -419,13 +423,18 @@ async def connect_ais_stream():
             print(f"Error during streaming: {e}")
 
         if not found_result:
-            print("No AIS messages received for the specified MMSI within 10 minutes.")
+            print(f"No AIS messages received for the specified MMSI(s) within {config.MAX_DURATION_MINUTES} minutes.")
             print("Existing files were not overwritten.")
         else:
             print(f"AIS monitoring completed. Data saved to {csv_filename}")
 
 def print_field_meanings():
     """Print the field meanings for reference"""
+    print("\n=== Configuration ===")
+    print(f"Monitored MMSI(s): {config.FILTERS_SHIP_MMSI}")
+    print(f"Max monitoring duration: {config.MAX_DURATION_MINUTES} minutes")
+    print(f"Time threshold for duplicate filtering: {config.TIME_THRESHOLD_HOURS} hour(s)")
+
     print("\n=== AIS PositionReport Field Meanings ===")
     print("1) Cog (Course over Ground): Vessel's actual course over ground in degrees (0-359). 360 = not available")
     print("2) NavigationalStatus: 0=Under way, 1=At anchor, 2=Not under command, 8=Reserved, 15=Not defined")

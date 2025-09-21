@@ -45,6 +45,11 @@
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
+
+        .error-message {
+            color: red;
+            font-weight: bold;
+        }
     </style>
 </head>
 
@@ -124,100 +129,43 @@
             });
         }
 
-        // Beispiel-Track-Daten (um CORS-Probleme beim lokalen Testen zu vermeiden)
-        // In Produktion würden Sie diese durch die Funktion loadShipTracks() ersetzen
-        const exampleTracksData = {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "LineString",
-                        "coordinates": [
-                            [10.15735, 54.33571],
-                            [10.157351666666667, 54.33570666666667]
-                        ]
-                    },
-                    "properties": {
-                        "mmsi": 244528000,
-                        "start_time": "2025-09-20T14:26:25.255201198+00:00",
-                        "end_time": "2025-09-20T17:26:25.255201198+00:00",
-                        "total_points": 2,
-                        "track_type": "AIS_position_reports",
-                        "navigational_status": 8
-                    }
+        // Funktion zum Laden der Schiffsdaten vom Server
+        async function loadShipData() {
+            try {
+                const response = await fetch('position_report.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP-Fehler! Status: ${response.status}`);
                 }
-            ]
-        };
+                const shipData = await response.json();
+                return shipData;
+            } catch (error) {
+                console.error('Fehler beim Laden der Schiffsdaten:', error);
+                throw error;
+            }
+        }
 
         // Funktion zum Laden der Schiffsspuren
         async function loadShipTracks() {
             try {
-                // Für lokales Testen: Verwende die Beispieldaten
-                if (window.location.protocol === 'file:') {
-                    console.log('Lokales Testen: Verwende Beispiel-Track-Daten');
-                    return exampleTracksData;
-                }
-
-                // Für Webserver: Lade echte GeoJSON-Datei
                 const response = await fetch('ship_tracks.geojson');
+                if (!response.ok) {
+                    console.warn('Schiffsspuren-Datei nicht gefunden oder nicht erreichbar');
+                    return null;
+                }
                 const tracksData = await response.json();
                 return tracksData;
             } catch (error) {
-                console.error('Fehler beim Laden der Schiffsspuren:', error);
-                console.log('Fallback: Verwende Beispiel-Track-Daten');
-                return exampleTracksData;
+                console.warn('Fehler beim Laden der Schiffsspuren:', error);
+                return null;
             }
         }
-
-        // Beispieldaten - In der Realität würden Sie diese aus position_report.json laden
-        const shipData = {
-            "PositionReport": {
-                "Cog": 360,
-                "CommunicationState": 25192,
-                "Latitude": 54.33570666666667,
-                "Longitude": 10.157351666666667,
-                "MessageID": 1,
-                "NavigationalStatus": 8,
-                "PositionAccuracy": true,
-                "Raim": true,
-                "RateOfTurn": -128,
-                "RepeatIndicator": 0,
-                "Sog": 0,
-                "Spare": 0,
-                "SpecialManoeuvreIndicator": 0,
-                "Timestamp": 25,
-                "TrueHeading": 511,
-                "UserID": 244528000,
-                "Valid": true
-            },
-            "MetaData": {
-                "MMSI": 244528000,
-                "MMSI_String": 244528000,
-                "ShipName": "REGINA MARIS",
-                "latitude": 54.33570666666667,
-                "longitude": 10.157351666666667,
-                "time_utc": "2025-09-20 17:26:25.255201198 +0000 UTC"
-            },
-            "WeatherData": {
-                "wetterzustand": "Bedeckt",
-                "luftdruck": 1010.2,
-                "windrichtung": 275,
-                "windstaerke": 11.6,
-                "bewoelkung": 100,
-                "lufttemperatur": 21.0,
-                "niederschlag": 0.0,
-                "wassertemperatur": 17.9,
-                "wellenhoehe": 0.22
-            },
-            "timestamp_utc": "2025-09-20 17:26:25.255201198 +0000 UTC"
-        };
 
         // Globale Variablen für Karte und Layer
         let map;
         let shipMarker;
         let trackLayers = [];
         let infoControl;
+        let currentShipData = null;
 
         // Funktion zum Parsen der URL-Parameter
         function getUrlParameters() {
@@ -274,7 +222,9 @@
         // Funktion zur Karteninitialisierung (nur einmal aufgerufen)
         async function initializeMap() {
             try {
-                const posReport = shipData.PositionReport;
+                // Schiffsdaten laden
+                currentShipData = await loadShipData();
+                const posReport = currentShipData.PositionReport;
 
                 // Loading-Nachricht entfernen
                 document.getElementById('loading').style.display = 'none';
@@ -294,12 +244,18 @@
                 // Schiffsspuren laden und anzeigen
                 await loadAndDisplayTracks();
 
-                // Schiffsdaten initial laden und anzeigen
-                updateShipData();
+                // Schiffsdaten initial anzeigen
+                updateShipDisplay();
 
             } catch (error) {
                 console.error('Fehler beim Initialisieren der Karte:', error);
-                document.getElementById('loading').innerHTML = 'Fehler beim Initialisieren der Karte';
+                document.getElementById('loading').innerHTML = `
+                    <div class="error-message">
+                        Fehler beim Laden der Schiffsdaten:<br>
+                        ${error.message}<br><br>
+                        Bitte prüfen Sie, ob die Datei 'position_report.json' auf dem Server verfügbar ist.
+                    </div>
+                `;
             }
         }
 
@@ -309,7 +265,7 @@
                 const tracksData = await loadShipTracks();
 
                 // Schiffsspuren zur Karte hinzufügen (falls geladen)
-                if (tracksData) {
+                if (tracksData && tracksData.features) {
                     tracksData.features.forEach(feature => {
                         if (feature.geometry && feature.geometry.type === 'LineString') {
                             // Koordinaten von GeoJSON [lon, lat] zu Leaflet [lat, lon] konvertieren
@@ -352,20 +308,32 @@
                     });
                 }
             } catch (error) {
-                console.error('Fehler beim Laden der Tracks:', error);
+                console.warn('Schiffsspuren konnten nicht geladen werden:', error);
             }
         }
 
-        // Funktion zum Aktualisieren der Schiffsdaten
-        function updateShipData() {
+        // Funktion zum Aktualisieren der Schiffsdaten (lädt neue Daten vom Server)
+        async function updateShipData() {
             try {
-                // Hier würden Sie normalerweise die JSON-Datei laden:
-                // const response = await fetch('position_report.json');
-                // const shipData = await response.json();
+                currentShipData = await loadShipData();
+                updateShipDisplay();
+            } catch (error) {
+                console.error('Fehler beim Aktualisieren der Schiffsdaten:', error);
+                // Bei Fehlern die letzten bekannten Daten beibehalten
+            }
+        }
 
-                const posReport = shipData.PositionReport;
-                const metaData = shipData.MetaData;
-                const weatherData = shipData.WeatherData;
+        // Funktion zum Anzeigen der Schiffsdaten auf der Karte
+        function updateShipDisplay() {
+            try {
+                if (!currentShipData) {
+                    console.warn('Keine Schiffsdaten verfügbar');
+                    return;
+                }
+
+                const posReport = currentShipData.PositionReport;
+                const metaData = currentShipData.MetaData;
+                const weatherData = currentShipData.WeatherData;
 
                 // Schiffsfarbe bestimmen
                 const shipColor = getShipColor(posReport.NavigationalStatus, posReport.Cog, posReport.Sog);
@@ -381,8 +349,8 @@
                 // Zeit seit letztem Update
                 const timeSinceUpdate = getTimeSinceUpdate(metaData.time_utc);
 
-                // Windgeschwindigkeit in Beaufort konvertieren
-                const windBeaufort = getBeaufortScale(weatherData.windstaerke);
+                // Windgeschwindigkeit in Beaufort konvertieren (falls Wetterdaten vorhanden)
+                const windBeaufort = weatherData ? getBeaufortScale(weatherData.windstaerke) : 'Nicht verfügbar';
 
                 // Popup-Inhalt erstellen
                 const popupContent = `
@@ -393,12 +361,14 @@
                             <strong>Status:</strong> ${currentStatus}<br>
                             <strong>Navigationsstatus:</strong> ${statusText}<br>
                             <strong>Geschwindigkeit:</strong> ${posReport.Sog} Knoten<br>
-                            <strong>Kurs:</strong> ${posReport.Cog === 360 ? 'Nicht verfügbar' : posReport.Cog + '°'}<br>                          
+                            <strong>Kurs:</strong> ${posReport.Cog === 360 ? 'Nicht verfügbar' : posReport.Cog + '°'}<br>
+                            ${weatherData ? `
                             <strong>Wetter:</strong> ${weatherData.wetterzustand}<br>
                             <strong>Lufttemperatur:</strong> ${weatherData.lufttemperatur}°C<br>
                             <strong>Wind:</strong> ${windBeaufort}<br>
                             <strong>Wassertemperatur:</strong> ${weatherData.wassertemperatur} °C<br>
                             <strong>Wellenhöhe:</strong> ${weatherData.wellenhoehe} m<br>
+                            ` : '<strong>Wetterdaten:</strong> Nicht verfügbar<br>'}
                             <strong>Letztes Update:</strong> vor ${timeSinceUpdate}
                         </div>
                     </div>
@@ -432,8 +402,10 @@
                         <strong>${metaData.ShipName}</strong><br>
                         Status: ${currentStatus}<br>
                         Geschwindigkeit: ${posReport.Sog} kn<br>
+                        ${weatherData ? `
                         Wetter: ${weatherData.wetterzustand}<br>
                         Wind: ${windBeaufort}<br>
+                        ` : 'Wetter: Nicht verfügbar<br>'}
                         Update: vor ${timeSinceUpdate}
                     `;
                     div.style.background = 'rgba(255,255,255,0.95)';
@@ -446,14 +418,14 @@
                 infoControl.addTo(map);
 
             } catch (error) {
-                console.error('Fehler beim Aktualisieren der Schiffsdaten:', error);
+                console.error('Fehler beim Anzeigen der Schiffsdaten:', error);
             }
         }
 
         // Karte initialisieren beim Laden der Seite
         initializeMap();
 
-        // Automatische Updates alle 30 Sekunden (nur Schiffsdaten, nicht die Karte)
+        // Automatische Updates alle 30 Sekunden (lädt neue Daten vom Server)
         setInterval(updateShipData, 30000);
     </script>
 </body>
