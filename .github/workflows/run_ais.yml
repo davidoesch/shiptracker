@@ -1,5 +1,9 @@
 name: Run ais
 
+concurrency:
+  group: run-ais-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   schedule:
   - cron:  '15 * * * *'
