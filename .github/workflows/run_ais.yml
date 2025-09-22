@@ -38,33 +38,17 @@ jobs:
         python ais_ship_tracker_weather.py
       env: # Set the secrets as env var
         AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
-     
-    - name: Push CSV files to repo
+      
+
+    - name: Push CSV, JSON, GEOJSON files to repo
       uses: github-actions-x/commit@v2.9
       with:
         push-branch: 'main'
-        commit-message: 'CSV files push done'
+        commit-message: 'Update CSV, JSON, and GEOJSON files'
         force-add: 'true'
-        files: "*.csv"
-        name: autoupdate
-        
-    - name: Push JSON files to repo
-      uses: github-actions-x/commit@v2.9
-      with:
-        push-branch: 'main'
-        commit-message: 'JSON files push done'
-        force-add: 'true'
-        files: "*.json"
+        files: "*.csv *.json *.geojson"
         name: autoupdate
 
-    - name: Push GEOJSON files to repo
-      uses: github-actions-x/commit@v2.9
-      with:
-        push-branch: 'main'
-        commit-message: 'GEOJSON files push done'
-        force-add: 'true'
-        files: "*.geojson"
-        name: autoupdate
 
     
         
