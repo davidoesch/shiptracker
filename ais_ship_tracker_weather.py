@@ -302,7 +302,9 @@ async def connect_ais_stream():
                 # Check if max duration has elapsed
                 if current_time - start_time > max_duration:
                     print(f"{config.MAX_DURATION_MINUTES} minutes elapsed. Stopping stream.")
-                    break
+                    # Exit gracefully
+                    print("Maximum duration reached. Exiting gracefully...")
+                    return
                 try:
                     message_json = await asyncio.wait_for(websocket.recv(), timeout=5)
                 except asyncio.TimeoutError:
