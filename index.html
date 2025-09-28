@@ -107,15 +107,15 @@
         }
 
         // Funktion zum Erstellen eines Schiffs-SVG-Icons
-        function createShipIcon(heading, color) {
-            const rotation = posReport.Cog === 360 ? 0 : posReport.Cog;
+        function createShipIcon(cog, color) {
+            const rotation = cog === 360 ? 0 : cog;
 
             const svgIcon = `
                 <svg xmlns:xlink="http://www.w3.org/1999/xlink" width="46" height="46" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <rect width="48" height="48" fill="white" fill-opacity="0.01"/>
                     <g transform="rotate(${rotation - 45} 24 24)" fill="${color}" stroke="#000" stroke-width="1">
                         <path d="M42 6L4 20.1383L24 24.0083L29.0052 44L42 6Z"/>
-                        <polygon points="24,24 29.7,,17 23.5,22"/>
+                        <polygon points="24,24 29.7,18.4 28,17 23.5,22"/>
                     </g>
                 </svg>
             `;
@@ -338,8 +338,8 @@
                 // Schiffsfarbe bestimmen
                 const shipColor = getShipColor(posReport.NavigationalStatus, posReport.Cog, posReport.Sog);
 
-                // Schiffs-Icon erstellen
-                const shipIcon = createShipIcon(posReport.TrueHeading, shipColor);
+                // Schiffs-Icon erstellen - Verwende COG (Course over Ground) für die Rotation
+                const shipIcon = createShipIcon(posReport.Cog, shipColor);
 
                 // Status bestimmen
                 const statusText = navigationStatus[posReport.NavigationalStatus] || "Unbekannt";
@@ -362,6 +362,7 @@
                             <strong>Navigationsstatus:</strong> ${statusText}<br>
                             <strong>Geschwindigkeit:</strong> ${posReport.Sog} Knoten<br>
                             <strong>Kurs:</strong> ${posReport.Cog === 360 ? 'Nicht verfügbar' : posReport.Cog + '°'}<br>
+                            <strong>True Heading:</strong> ${posReport.TrueHeading === 511 ? 'Nicht verfügbar' : posReport.TrueHeading + '°'}<br>
                             ${weatherData ? `
                             <strong>Wetter:</strong> ${weatherData.wetterzustand}<br>
                             <strong>Lufttemperatur:</strong> ${weatherData.lufttemperatur}°C<br>
