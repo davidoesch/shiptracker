@@ -108,7 +108,7 @@
 
         // Funktion zum Erstellen eines Schiffs-SVG-Icons
         function createShipIcon(heading, color) {
-            const rotation = heading === 511 ? 0 : heading;
+            const rotation = posReport.Cog === 360 ? 0 : posReport.Cog;
 
             const svgIcon = `
                 <svg xmlns:xlink="http://www.w3.org/1999/xlink" width="46" height="46" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
