@@ -437,14 +437,18 @@
           [
             4.57899,
             52.45849
+          ],
+          [
+            4.57899,
+            52.45848
           ]
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "start_time": "2025-09-23T17:51:45.243200626+00:00",
-        "end_time": "2025-10-04T21:26:15.866716416+00:00",
-        "total_points": 108,
+        "end_time": "2025-10-04T21:51:45.919632785+00:00",
+        "total_points": 109,
         "track_type": "AIS_position_reports",
         "navigational_status": 8
       }
