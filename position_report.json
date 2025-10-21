@@ -1,9 +1,9 @@
 {
   "PositionReport": {
     "Cog": 360,
-    "CommunicationState": 83658,
+    "CommunicationState": 86346,
     "Latitude": 51.233885,
-    "Longitude": 2.9233033333333336,
+    "Longitude": 2.9233,
     "MessageID": 3,
     "NavigationalStatus": 5,
     "PositionAccuracy": true,
@@ -13,7 +13,7 @@
     "Sog": 0,
     "Spare": 0,
     "SpecialManoeuvreIndicator": 0,
-    "Timestamp": 6,
+    "Timestamp": 5,
     "TrueHeading": 511,
     "UserID": 244528000,
     "Valid": true
@@ -23,19 +23,19 @@
     "MMSI_String": 244528000,
     "ShipName": "REGINA MARIS",
     "latitude": 51.233885,
-    "longitude": 2.9233033333333336,
-    "time_utc": "2025-10-21 07:55:06.952180956 +0000 UTC"
+    "longitude": 2.9233,
+    "time_utc": "2025-10-21 08:43:05.488553933 +0000 UTC"
   },
   "WeatherData": {
     "wetterzustand": "\u00dcberwiegend klar",
-    "luftdruck": 993.7,
-    "windrichtung": 251,
-    "windstaerke": 25.2,
-    "bewoelkung": 49,
-    "lufttemperatur": 13.9,
+    "luftdruck": 994.2,
+    "windrichtung": 236,
+    "windstaerke": 18.7,
+    "bewoelkung": 45,
+    "lufttemperatur": 13.6,
     "niederschlag": 0.0,
     "wassertemperatur": 14.8,
     "wellenhoehe": 1.54
   },
-  "timestamp_utc": "2025-10-21 07:55:06.952180956 +0000 UTC"
+  "timestamp_utc": "2025-10-21 08:43:05.488553933 +0000 UTC"
 }
