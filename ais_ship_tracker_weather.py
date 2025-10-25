@@ -536,10 +536,10 @@ def extract_ship_details(details_url, debug=False):
 
         # Initialize results
         result = {
-            'nav_status': 1,
-            'timestamp_utc': None,
-            'sog': 0,
-            'cog': 360
+            'nav_status': 999,
+            'timestamp_utc': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S.00000000 +0000 UTC'),
+            'sog': 999,
+            'cog': 999
         }
 
         # Find all table rows
@@ -643,6 +643,154 @@ def get_ship_data(ship_id, debug=False):
 
     return result
 
+async def process_and_save_ship_data(
+    timestamp_utc,
+    mmsi,
+    latitude,
+    longitude,
+    cog,
+    sog,
+    true_heading,
+    nav_status,
+    latest_entry,
+    latest_entry_time,
+    csv_filename,
+    ais_message=None,
+    meta_data=None
+):
+    """
+    Process ship position data, check filtering rules, get weather data, and save to CSV.
+
+    Args:
+        timestamp_utc: UTC timestamp string
+        mmsi: Maritime Mobile Service Identity
+        latitude: Latitude coordinate
+        longitude: Longitude coordinate
+        cog: Course over ground
+        sog: Speed over ground
+        true_heading: True heading
+        nav_status: Navigational status
+        latest_entry: Dictionary with latest entry data (sog, navigational_status)
+        latest_entry_time: Datetime of latest entry
+        csv_filename: Path to CSV file
+        ais_message: Optional AIS message dict for JSON output
+        meta_data: Optional metadata dict for JSON output
+
+    Returns:
+        Tuple of (should_continue, new_latest_entry_time, new_latest_entry)
+        - should_continue: Boolean indicating if processing was successful
+        - new_latest_entry_time: Updated latest entry time
+        - new_latest_entry: Updated latest entry dict
+    """
+    print(f"[{timestamp_utc}] MMSI: {mmsi}, Lat: {latitude}, Lon: {longitude}, SOG: {sog}, Nav Status: {nav_status}")
+
+    # Get weather data for the ship's current position
+    print("Retrieving weather data...")
+    weather_data = await get_weather_data(latitude, longitude)
+
+    if weather_data:
+        print(f"Wetter: {weather_data.get('wetterzustand', 'N/A')}, Temp: {weather_data.get('lufttemperatur', 'N/A')}°C, Wind: {weather_data.get('windstaerke', 'N/A')} km/h")
+
+    # Check if we should add this entry based on the filtering rules
+    should_add = True
+
+    # Rule: Don't add if current vessel is NOT moving (nav_status = 1 OR sog = 0)
+    # AND latest entry also has sog == 0 OR nav_status == 1
+    if nav_status == 1 or sog == 0:  # Current vessel is not moving
+        if latest_entry is not None:
+            latest_sog = latest_entry.get('sog', 0)
+            latest_nav_status = latest_entry.get('navigational_status', 15)
+
+            if latest_sog == 0 or latest_nav_status == 1:
+                should_add = False
+                print("Skipping entry: Current vessel not moving and latest entry was also stopped/anchored")
+
+    # Check if latest entry is older than configured threshold
+    if latest_entry_time is not None:
+        # Parse the time_utc from the report
+        try:
+            time_str = timestamp_utc.replace(" +0000 UTC", "")
+            report_time = datetime.fromisoformat(time_str).replace(tzinfo=timezone.utc)
+        except:
+            # Fallback to current time if parsing fails
+            report_time = datetime.now(timezone.utc)
+
+        time_diff = report_time - latest_entry_time.replace(tzinfo=timezone.utc)
+        time_threshold = timedelta(hours=config.TIME_THRESHOLD_HOURS)
+
+        if time_diff < time_threshold:
+            should_add = False
+            print(f"Skipping entry: Latest entry is only {time_diff} old (< {config.TIME_THRESHOLD_HOURS} hour(s))")
+
+    if should_add:
+        # Append to CSV
+        with open(csv_filename, 'a', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                timestamp_utc,
+                mmsi,
+                latitude,
+                longitude,
+                cog,
+                sog,
+                true_heading,
+                nav_status,
+                weather_data.get('wetterzustand') if weather_data else None,
+                weather_data.get('luftdruck') if weather_data else None,
+                weather_data.get('windrichtung') if weather_data else None,
+                weather_data.get('windstaerke') if weather_data else None,
+                weather_data.get('bewoelkung') if weather_data else None,
+                weather_data.get('lufttemperatur') if weather_data else None,
+                weather_data.get('wassertemperatur') if weather_data else None,
+                weather_data.get('niederschlag') if weather_data else None,
+                weather_data.get('wellenhoehe') if weather_data else None
+            ])
+
+        print(f"Added new entry to CSV: {csv_filename}")
+
+        # Update latest entry info for next iteration
+        try:
+            time_str = timestamp_utc.replace(" +0000 UTC", "")
+            new_latest_entry_time = datetime.fromisoformat(time_str).replace(tzinfo=timezone.utc)
+        except:
+            new_latest_entry_time = datetime.now(timezone.utc)
+
+        new_latest_entry = {
+            'sog': sog,
+            'navigational_status': nav_status
+        }
+    else:
+        # Don't update if we didn't add
+        new_latest_entry_time = latest_entry_time
+        new_latest_entry = latest_entry
+
+    # Save the complete message to JSON for reference
+    output = {
+        "WeatherData": weather_data,
+        "timestamp_utc": timestamp_utc
+    }
+
+    if ais_message is not None:
+        output["PositionReport"] = ais_message
+    else:
+        # For fallback data
+        output["PositionReport"] = {
+            "lat": latitude,
+            "lon": longitude,
+            "nav_status": nav_status,
+            "timestamp_utc": timestamp_utc,
+            "sog": sog,
+            "cog": cog
+        }
+
+    if meta_data is not None:
+        output["MetaData"] = meta_data
+
+    with open("position_report.json", "w") as f:
+        json.dump(output, f, indent=2)
+
+    return True, new_latest_entry_time, new_latest_entry
+
 async def connect_ais_stream():
     csv_filename = "ais_position_reports.csv"
     csv_headers = ["timestamp_utc", "mmsi", "latitude", "longitude", "cog", "sog", "true_heading", "navigational_status","wetterzustand", "luftdruck", "windrichtung", "windstaerke", "bewoelkung", "lufttemperatur","wassertemperatur", "niederschlag", "wellenhoehe"]
@@ -690,7 +838,7 @@ async def connect_ais_stream():
             "APIKey": api_key,
             #"BoundingBoxes": [[[-90, -180], [90, 180]]], # Worldwide
             "BoundingBoxes": config.BOUNDING_BOXES,
-            "FiltersShipMMSI": config.FILTERS_SHIP_MMSI_ID[0],
+            "FiltersShipMMSI": [config.FILTERS_SHIP_MMSI_ID[0]],
             "FilterMessageTypes": ["PositionReport"]
         }
 
@@ -735,93 +883,21 @@ async def connect_ais_stream():
                         nav_status = data['nav_status']
                         print("=" * 60)
                         print(f"[{timestamp_utc}] MMSI: {mmsi}, Lat: {latitude}, Lon: {longitude}, SOG: {sog}, Nav Status: {nav_status}")
-                        # Get weather data for the ship's current position
+                        success, latest_entry_time, latest_entry = await process_and_save_ship_data(
+                            timestamp_utc=timestamp_utc,
+                            mmsi=mmsi,
+                            latitude=latitude,
+                            longitude=longitude,
+                            cog=cog,
+                            sog=sog,
+                            true_heading=true_heading,
+                            nav_status=nav_status,
+                            latest_entry=latest_entry,
+                            latest_entry_time=latest_entry_time,
+                            csv_filename=csv_filename
+                        )
 
-                        print("Retrieving weather data...")
-                        weather_data = await get_weather_data(latitude, longitude)
 
-                        if weather_data:
-                            print(f"Wetter: {weather_data.get('wetterzustand', 'N/A')}, Temp: {weather_data.get('lufttemperatur', 'N/A')}°C, Wind: {weather_data.get('windstaerke', 'N/A')} km/h")
-
-                        # Check if we should add this entry based on the filtering rules
-                        should_add = True
-
-                        # Rule: Don't add if current vessel is NOT moving (nav_status = 1 OR sog = 0)
-                        # AND latest entry also has sog == 0 OR nav_status == 1
-                        if nav_status == 1 or sog == 0:  # Current vessel is not moving
-                            if latest_entry is not None:
-                                latest_sog = latest_entry.get('sog', 0)
-                                latest_nav_status = latest_entry.get('navigational_status', 15)
-
-                                if latest_sog == 0 or latest_nav_status == 1:
-                                    should_add = False
-                                    print("Skipping entry: Current vessel not moving and latest entry was also stopped/anchored")
-
-                        # Check if latest entry is older than configured threshold
-                        if latest_entry_time is not None:
-                            # Parse the time_utc from the report (format: "2025-09-19 22:41:24.729345016 +0000 UTC")
-                            try:
-                                # Extract the datetime part and parse it
-                                time_str = time_utc_from_report.replace(" +0000 UTC", "")
-                                report_time = datetime.fromisoformat(time_str).replace(tzinfo=timezone.utc)
-                            except:
-                                # Fallback to current time if parsing fails
-                                report_time = current_time
-
-                            time_diff = report_time - latest_entry_time.replace(tzinfo=timezone.utc)
-                            time_threshold = timedelta(hours=config.TIME_THRESHOLD_HOURS)  # Use config parameter
-
-                            if time_diff < time_threshold:
-                                should_add = False
-                                print(f"Skipping entry: Latest entry is only {time_diff} old (< {config.TIME_THRESHOLD_HOURS} hour(s))")
-
-                        if should_add:
-
-                            # Append to CSV
-                            with open(csv_filename, 'a', newline='') as f:
-                                writer = csv.writer(f)
-                                writer.writerow([
-                                    timestamp_utc,
-                                    mmsi,
-                                    latitude,
-                                    longitude,
-                                    cog,
-                                    sog,
-                                    true_heading,
-                                    nav_status,
-                                    weather_data.get('wetterzustand') if weather_data else None,
-                                    weather_data.get('luftdruck') if weather_data else None,
-                                    weather_data.get('windrichtung') if weather_data else None,
-                                    weather_data.get('windstaerke') if weather_data else None,
-                                    weather_data.get('bewoelkung') if weather_data else None,
-                                    weather_data.get('lufttemperatur') if weather_data else None,
-                                    weather_data.get('wassertemperatur') if weather_data else None,
-                                    weather_data.get('niederschlag') if weather_data else None,
-                                    weather_data.get('wellenhoehe') if weather_data else None
-                                ])
-
-                            print(f"Added new entry to CSV: {csv_filename}")
-
-                            # Update latest entry info for next iteration
-                            try:
-                                time_str = time_utc_from_report.replace(" +0000 UTC", "")
-                                latest_entry_time = datetime.fromisoformat(time_str).replace(tzinfo=timezone.utc)
-                            except:
-                                latest_entry_time = current_time
-                            latest_entry = {
-                                'sog': sog,
-                                'navigational_status': nav_status
-                            }
-
-                        # Also save the complete message to JSON for reference and as well the weather data
-                        output = {
-                            "PositionReport": data,
-                            "WeatherData": weather_data,
-                            "timestamp_utc": timestamp_utc
-                        }
-
-                        with open("position_report.json", "w") as f:
-                            json.dump(output, f, indent=2)
 
 
                     else:
@@ -855,84 +931,21 @@ async def connect_ais_stream():
                     nav_status = ais_message.get('NavigationalStatus', 15)  # 15 = not defined
 
                     print(f"[{timestamp_utc}] MMSI: {mmsi}, Lat: {latitude}, Lon: {longitude}, SOG: {sog}, Nav Status: {nav_status}")
-                    # Get weather data for the ship's current position
-
-                    print("Retrieving weather data...")
-                    weather_data = await get_weather_data(latitude, longitude)
-
-                    if weather_data:
-                        print(f"Wetter: {weather_data.get('wetterzustand', 'N/A')}, Temp: {weather_data.get('lufttemperatur', 'N/A')}°C, Wind: {weather_data.get('windstaerke', 'N/A')} km/h")
-
-                    # Check if we should add this entry based on the filtering rules
-                    should_add = True
-
-                    # Rule: Don't add if current vessel is NOT moving (nav_status = 1 OR sog = 0)
-                    # AND latest entry also has sog == 0 OR nav_status == 1
-                    if nav_status == 1 or sog == 0:  # Current vessel is not moving
-                        if latest_entry is not None:
-                            latest_sog = latest_entry.get('sog', 0)
-                            latest_nav_status = latest_entry.get('navigational_status', 15)
-
-                            if latest_sog == 0 or latest_nav_status == 1:
-                                should_add = False
-                                print("Skipping entry: Current vessel not moving and latest entry was also stopped/anchored")
-
-                    # Check if latest entry is older than configured threshold
-                    if latest_entry_time is not None:
-                        # Parse the time_utc from the report (format: "2025-09-19 22:41:24.729345016 +0000 UTC")
-                        try:
-                            # Extract the datetime part and parse it
-                            time_str = time_utc_from_report.replace(" +0000 UTC", "")
-                            report_time = datetime.fromisoformat(time_str).replace(tzinfo=timezone.utc)
-                        except:
-                            # Fallback to current time if parsing fails
-                            report_time = current_time
-
-                        time_diff = report_time - latest_entry_time.replace(tzinfo=timezone.utc)
-                        time_threshold = timedelta(hours=config.TIME_THRESHOLD_HOURS)  # Use config parameter
-
-                        if time_diff < time_threshold:
-                            should_add = False
-                            print(f"Skipping entry: Latest entry is only {time_diff} old (< {config.TIME_THRESHOLD_HOURS} hour(s))")
-
-                    if should_add:
-
-                        # Append to CSV
-                        with open(csv_filename, 'a', newline='') as f:
-                            writer = csv.writer(f)
-                            writer.writerow([
-                                timestamp_utc,
-                                mmsi,
-                                latitude,
-                                longitude,
-                                cog,
-                                sog,
-                                true_heading,
-                                nav_status,
-                                weather_data.get('wetterzustand') if weather_data else None,
-                                weather_data.get('luftdruck') if weather_data else None,
-                                weather_data.get('windrichtung') if weather_data else None,
-                                weather_data.get('windstaerke') if weather_data else None,
-                                weather_data.get('bewoelkung') if weather_data else None,
-                                weather_data.get('lufttemperatur') if weather_data else None,
-                                weather_data.get('wassertemperatur') if weather_data else None,
-                                weather_data.get('niederschlag') if weather_data else None,
-                                weather_data.get('wellenhoehe') if weather_data else None
-                            ])
-
-                        print(f"Added new entry to CSV: {csv_filename}")
-
-                        # Update latest entry info for next iteration
-                        try:
-                            time_str = time_utc_from_report.replace(" +0000 UTC", "")
-                            latest_entry_time = datetime.fromisoformat(time_str).replace(tzinfo=timezone.utc)
-                        except:
-                            latest_entry_time = current_time
-                        latest_entry = {
-                            'sog': sog,
-                            'navigational_status': nav_status
-                        }
-
+                    success, latest_entry_time, latest_entry = await process_and_save_ship_data(
+                        timestamp_utc=timestamp_utc,
+                        mmsi=mmsi,
+                        latitude=latitude,
+                        longitude=longitude,
+                        cog=cog,
+                        sog=sog,
+                        true_heading=true_heading,
+                        nav_status=nav_status,
+                        latest_entry=latest_entry,
+                        latest_entry_time=latest_entry_time,
+                        csv_filename=csv_filename,
+                        ais_message=ais_message,
+                        meta_data=meta_data
+                    )
                     # Also save the complete message to JSON for reference and as well the weather data
                     output = {
                         "PositionReport": ais_message,

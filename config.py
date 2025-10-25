@@ -15,7 +15,7 @@ FILTERS_SHIP_MMSI_ID = ["244528000","268855"]
 
 # Maximum monitoring duration in minutes
 # How long to monitor the AIS stream before stopping
-MAX_DURATION_MINUTES = 20
+MAX_DURATION_MINUTES = 12
 
 # Time threshold in hours for duplicate entry filtering
 # Skip new entries if the latest entry is younger than this threshold
