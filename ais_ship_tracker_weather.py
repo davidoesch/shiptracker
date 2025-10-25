@@ -6,6 +6,15 @@ import os
 from datetime import datetime, timezone, timedelta
 import pandas as pd
 import aiohttp
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
+from bs4 import BeautifulSoup
+from datetime import datetime
+import re
+import time
 import config  # Import configuration
 
 def get_api_key():
@@ -232,6 +241,408 @@ def get_weather_description(weather_code):
 
     return weather_codes.get(weather_code, f"Unbekannt ({weather_code})")
 
+def setup_driver(headless=True):
+    """Set up Chrome driver with proper options for GitHub Actions."""
+    options = webdriver.ChromeOptions()
+
+    if headless:
+        options.add_argument('--headless=new')
+
+    # Essential for GitHub Actions
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--window-size=1920,1080')
+    options.add_argument('--disable-blink-features=AutomationControlled')
+    options.add_argument('--disable-extensions')
+    options.add_argument('--disable-software-rasterizer')
+    options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+
+    # Suppress logging
+    options.add_experimental_option('excludeSwitches', ['enable-logging'])
+
+    # Accept cookies/terms automatically
+    prefs = {
+        "profile.default_content_setting_values.cookies": 1,
+        "profile.cookie_controls_mode": 0
+    }
+    options.add_experimental_option("prefs", prefs)
+
+    try:
+        driver = webdriver.Chrome(options=options)
+        driver.set_page_load_timeout(30)
+        return driver
+    except Exception as e:
+        print(f"Error setting up Chrome driver: {e}")
+        print("\nMake sure you have:")
+        print("1. Chrome browser installed")
+        print("2. ChromeDriver installed (pip install webdriver-manager)")
+        print("3. Or use: from selenium.webdriver.chrome.service import Service")
+        raise
+
+
+def handle_cookie_consent(driver, debug=False):
+    """
+    Handle cookie consent popup if it appears.
+    Tries multiple common selectors for AGREE/ACCEPT buttons.
+    """
+    try:
+        wait = WebDriverWait(driver, 5)
+
+        # Common button texts and selectors for cookie consent
+        button_selectors = [
+            # By button text
+            "//button[contains(translate(., 'AGREE', 'agree'), 'agree')]",
+            "//button[contains(translate(., 'ACCEPT', 'accept'), 'accept')]",
+            "//button[contains(translate(., 'CONSENT', 'consent'), 'consent')]",
+            "//a[contains(translate(., 'AGREE', 'agree'), 'agree')]",
+            "//a[contains(translate(., 'ACCEPT', 'accept'), 'accept')]",
+            # By common class names
+            "//button[contains(@class, 'accept')]",
+            "//button[contains(@class, 'agree')]",
+            "//button[contains(@class, 'consent')]",
+            # By ID
+            "//button[@id='cookie-accept']",
+            "//button[@id='accept-cookies']",
+            # Generic cookie banner buttons
+            "//*[@class='cc-btn' or @class='cookie-btn']",
+        ]
+
+        for selector in button_selectors:
+            try:
+                button = wait.until(
+                    EC.element_to_be_clickable((By.XPATH, selector))
+                )
+                if debug:
+                    print(f"Found consent button with selector: {selector}")
+
+                current_url = driver.current_url
+                button.click()
+                if debug:
+                    print("Clicked AGREE button")
+
+                time.sleep(2)
+
+                new_url = driver.current_url
+                if new_url != current_url:
+                    if debug:
+                        print(f"Page redirected from {current_url} to {new_url}")
+                    time.sleep(2)
+
+                return True
+            except:
+                continue
+
+        if debug:
+            print("No consent button found (might not be needed)")
+        return False
+
+    except Exception as e:
+        if debug:
+            print(f"Cookie consent handling: {e}")
+        return False
+
+
+def extract_from_javascript(url, debug=False, max_retries=3):
+    """
+    Extract coordinates by analyzing the page's JavaScript.
+    Looks for map initialization code with retry logic.
+    """
+    driver = setup_driver(headless=not debug)
+
+    try:
+        if debug:
+            print(f"Loading URL: {url}")
+
+        driver.get(url)
+        handle_cookie_consent(driver, debug)
+
+        if debug:
+            print(f"Current URL after consent: {driver.current_url}")
+
+        # Wait for map container to be present with longer timeout
+        try:
+            if debug:
+                print("Waiting for map container...")
+
+            map_container = WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located((By.ID, "map"))
+            )
+            if debug:
+                print("Map container found!")
+        except TimeoutException:
+            if debug:
+                print("Map container not found with ID='map', trying alternative selectors...")
+
+            alternative_selectors = [
+                (By.CLASS_NAME, "leaflet-container"),
+                (By.CSS_SELECTOR, "[class*='map']"),
+                (By.CSS_SELECTOR, "div[id*='map']"),
+            ]
+
+            map_found = False
+            for by, selector in alternative_selectors:
+                try:
+                    map_container = WebDriverWait(driver, 5).until(
+                        EC.presence_of_element_located((by, selector))
+                    )
+                    if debug:
+                        print(f"Map found with selector: {by}={selector}")
+                    map_found = True
+                    break
+                except:
+                    continue
+
+            if not map_found:
+                if debug:
+                    print("No map container found at all!")
+                return None
+
+        time.sleep(3)
+
+        # Retry logic for accessing the map object
+        for attempt in range(max_retries):
+            try:
+                if debug:
+                    print(f"Attempt {attempt + 1}/{max_retries} to access map object...")
+
+                center = driver.execute_script("""
+                    try {
+                        if (typeof L === 'undefined') {
+                            return {error: 'Leaflet not loaded'};
+                        }
+
+                        if (typeof map !== 'undefined' && map && map.getCenter) {
+                            var center = map.getCenter();
+                            return {lat: center.lat, lng: center.lng, method: 'global_map'};
+                        }
+
+                        if (L._maps) {
+                            for (var id in L._maps) {
+                                var mapInstance = L._maps[id];
+                                if (mapInstance && mapInstance.getCenter) {
+                                    var center = mapInstance.getCenter();
+                                    return {lat: center.lat, lng: center.lng, method: 'L._maps'};
+                                }
+                            }
+                        }
+
+                        for (var key in window) {
+                            try {
+                                if (window[key] &&
+                                    typeof window[key] === 'object' &&
+                                    window[key].getCenter &&
+                                    typeof window[key].getCenter === 'function') {
+                                    var center = window[key].getCenter();
+                                    if (center && center.lat !== undefined) {
+                                        return {lat: center.lat, lng: center.lng, method: 'window_search'};
+                                    }
+                                }
+                            } catch(e) {
+                                continue;
+                            }
+                        }
+
+                        return {error: 'No map instance found'};
+                    } catch(e) {
+                        return {error: e.toString()};
+                    }
+                """)
+
+                if debug:
+                    print(f"JavaScript result: {center}")
+
+                if center and 'lat' in center and 'lng' in center:
+                    if debug:
+                        print(f"✓ Found coordinates via method: {center.get('method', 'unknown')}")
+                    return {
+                        'lat': center['lat'],
+                        'lon': center['lng']
+                    }
+                elif center and 'error' in center:
+                    if debug:
+                        print(f"Error from JavaScript: {center['error']}")
+
+                    if 'not loaded' in center['error'].lower():
+                        if debug:
+                            print("Waiting for Leaflet to load...")
+                        time.sleep(3)
+                        continue
+
+                if attempt < max_retries - 1:
+                    if debug:
+                        print(f"Waiting before retry...")
+                    time.sleep(3)
+
+            except Exception as e:
+                if debug:
+                    print(f"Attempt {attempt + 1} exception: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(3)
+
+        if debug:
+            print("JavaScript methods failed, trying page source parsing...")
+
+        page_source = driver.page_source
+
+        patterns = [
+            (r'setView\s*\(\s*\[\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\]', 'setView'),
+            (r'"lat"\s*:\s*([-\d.]+)\s*,\s*"lng"\s*:\s*([-\d.]+)', 'lat/lng JSON'),
+            (r'"latitude"\s*:\s*([-\d.]+)\s*,\s*"longitude"\s*:\s*([-\d.]+)', 'latitude/longitude JSON'),
+            (r'center:\s*\[\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\]', 'center array'),
+        ]
+
+        for pattern, name in patterns:
+            match = re.search(pattern, page_source)
+            if match:
+                if debug:
+                    print(f"Found coordinates via page source pattern: {name}")
+                return {
+                    'lat': float(match.group(1)),
+                    'lon': float(match.group(2))
+                }
+
+        return None
+
+    finally:
+        driver.quit()
+
+
+def extract_ship_details(details_url, debug=False):
+    """
+    Extract ship details from the details page using BeautifulSoup.
+
+    Returns a dictionary with:
+    - nav_status: 0 if "Underway" in status, 1 otherwise
+    - timestamp_utc: formatted timestamp
+    - sog: speed over ground (float)
+    - cog: course over ground (int)
+    """
+    if debug:
+        print(f"\nExtracting ship details from: {details_url}")
+
+    driver = setup_driver(headless=not debug)
+
+    try:
+        driver.get(details_url)
+        handle_cookie_consent(driver, debug)
+
+        # Wait for the table to load
+        time.sleep(5)
+
+        # Get page source
+        page_source = driver.page_source
+        soup = BeautifulSoup(page_source, 'html.parser')
+
+        # Initialize results
+        result = {
+            'nav_status': 1,
+            'timestamp_utc': None,
+            'sog': 0,
+            'cog': 360
+        }
+
+        # Find all table rows
+        rows = soup.find_all('tr', class_='MuiTableRow-root')
+
+        for row in rows:
+            th = row.find('th', class_='MuiTableCell-root')
+            td = row.find('td', class_='MuiTableCell-root')
+
+            if not th or not td:
+                continue
+
+            header = th.get_text(strip=True)
+            value = td.get_text(strip=True)
+
+            if debug:
+                print(f"Found: {header} = {value}")
+
+            # Extract Navigational status
+            if 'Navigational status' in header:
+                result['nav_status'] = 0 if 'Underway' in value else 1
+                if debug:
+                    print(f"  → nav_status = {result['nav_status']}")
+
+            # Extract Vessel's local time
+            elif "Vessel's local time" in header or 'local time' in header.lower():
+                # Parse time like "2025-10-25 14:40 (UTC+0)"
+                time_match = re.search(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})', value)
+                if time_match:
+                    time_str = time_match.group(1)
+                    try:
+                        dt = datetime.strptime(time_str, '%Y-%m-%d %H:%M')
+                        # Format as "2025-09-28 18:51:24.44833531 +0000 UTC"
+                        result['timestamp_utc'] = dt.strftime('%Y-%m-%d %H:%M:%S.00000000 +0000 UTC')
+                        if debug:
+                            print(f"  → timestamp_utc = {result['timestamp_utc']}")
+                    except Exception as e:
+                        if debug:
+                            print(f"  → Error parsing time: {e}")
+
+            # Extract Speed
+            elif 'Speed' in header:
+                # Extract number from "6.5 kn"
+                speed_match = re.search(r'([\d.]+)', value)
+                if speed_match:
+                    result['sog'] = float(speed_match.group(1))
+                    if debug:
+                        print(f"  → sog = {result['sog']}")
+
+            # Extract Course
+            elif 'Course' in header:
+                # Extract number from "238 °"
+                course_match = re.search(r'(\d+)', value)
+                if course_match:
+                    result['cog'] = int(course_match.group(1))
+                    if debug:
+                        print(f"  → cog = {result['cog']}")
+
+        return result
+
+    finally:
+        driver.quit()
+
+
+def get_ship_data(ship_id, debug=False):
+    """
+    Complete function to extract both coordinates and ship details.
+
+    Args:
+        ship_id: MarineTraffic ship ID
+        debug: Enable debug output
+
+    Returns:
+        Dictionary with all extracted data
+    """
+    # Step 1: Extract coordinates from map
+    map_url = f"https://www.marinetraffic.com/en/ais/home/shipid:{ship_id}/zoom:10"
+    print(f"Step 1: Extracting coordinates from map...")
+    coords = extract_from_javascript(map_url, debug=debug, max_retries=5)
+
+    if not coords:
+        print("✗ Failed to extract coordinates")
+        return None
+
+    print(f"✓ Coordinates extracted: {coords['lat']}, {coords['lon']}")
+
+    # Step 2: Extract ship details
+    details_url = f"https://www.marinetraffic.com/en/ais/details/ships/shipid:{ship_id}/"
+    print(f"\nStep 2: Extracting ship details...")
+    details = extract_ship_details(details_url, debug=debug)
+
+    # Combine results
+    result = {
+        'lat': round(coords['lat'], 5),
+        'lon': round(coords['lon'], 5),
+        'nav_status': details['nav_status'],
+        'timestamp_utc': details['timestamp_utc'],
+        'sog': details['sog'],
+        'cog': details['cog']
+    }
+
+    return result
+
 async def connect_ais_stream():
     csv_filename = "ais_position_reports.csv"
     csv_headers = ["timestamp_utc", "mmsi", "latitude", "longitude", "cog", "sog", "true_heading", "navigational_status","wetterzustand", "luftdruck", "windrichtung", "windstaerke", "bewoelkung", "lufttemperatur","wassertemperatur", "niederschlag", "wellenhoehe"]
@@ -279,7 +690,7 @@ async def connect_ais_stream():
             "APIKey": api_key,
             #"BoundingBoxes": [[[-90, -180], [90, 180]]], # Worldwide
             "BoundingBoxes": config.BOUNDING_BOXES,
-            "FiltersShipMMSI": config.FILTERS_SHIP_MMSI,
+            "FiltersShipMMSI": config.FILTERS_SHIP_MMSI_ID[0],
             "FilterMessageTypes": ["PositionReport"]
         }
 
@@ -291,9 +702,10 @@ async def connect_ais_stream():
         found_result = False
 
         print(f"Starting AIS stream monitoring for {config.MAX_DURATION_MINUTES} minutes...")
-        print(f"Monitoring MMSI(s): {config.FILTERS_SHIP_MMSI}")
+        print(f"Monitoring MMSI(s): {config.FILTERS_SHIP_MMSI_ID[0]}")
         print(f"Time threshold: {config.TIME_THRESHOLD_HOURS} hour(s)")
         print(f"Start time: {start_time}")
+
 
         try:
             while True:
@@ -303,7 +715,119 @@ async def connect_ais_stream():
                 if current_time - start_time > max_duration:
                     print(f"{config.MAX_DURATION_MINUTES} minutes elapsed. Stopping stream.")
                     # Exit gracefully
-                    print("Maximum duration reached. Exiting gracefully...")
+                    print("Maximum duration reached. Going for fallback solution...")
+
+                    # Extract all data
+                    data = get_ship_data(config.FILTERS_SHIP_MMSI_ID[1], debug=False)
+
+                    if data:
+                        found_result = True
+                        print("\n" + "=" * 60)
+                        print("✓ FALLBACK SUCCESS - Complete Ship Data:")
+                        time_utc_from_report = data['timestamp_utc']
+                        timestamp_utc = time_utc_from_report # Use current time as timestamp
+                        mmsi = config.FILTERS_SHIP_MMSI_ID[0]
+                        latitude = data['lat']
+                        longitude = data['lon']
+                        cog = data['cog']
+                        sog = data['sog']
+                        true_heading = 511
+                        nav_status = data['nav_status']
+                        print("=" * 60)
+                        print(f"[{timestamp_utc}] MMSI: {mmsi}, Lat: {latitude}, Lon: {longitude}, SOG: {sog}, Nav Status: {nav_status}")
+                        # Get weather data for the ship's current position
+
+                        print("Retrieving weather data...")
+                        weather_data = await get_weather_data(latitude, longitude)
+
+                        if weather_data:
+                            print(f"Wetter: {weather_data.get('wetterzustand', 'N/A')}, Temp: {weather_data.get('lufttemperatur', 'N/A')}°C, Wind: {weather_data.get('windstaerke', 'N/A')} km/h")
+
+                        # Check if we should add this entry based on the filtering rules
+                        should_add = True
+
+                        # Rule: Don't add if current vessel is NOT moving (nav_status = 1 OR sog = 0)
+                        # AND latest entry also has sog == 0 OR nav_status == 1
+                        if nav_status == 1 or sog == 0:  # Current vessel is not moving
+                            if latest_entry is not None:
+                                latest_sog = latest_entry.get('sog', 0)
+                                latest_nav_status = latest_entry.get('navigational_status', 15)
+
+                                if latest_sog == 0 or latest_nav_status == 1:
+                                    should_add = False
+                                    print("Skipping entry: Current vessel not moving and latest entry was also stopped/anchored")
+
+                        # Check if latest entry is older than configured threshold
+                        if latest_entry_time is not None:
+                            # Parse the time_utc from the report (format: "2025-09-19 22:41:24.729345016 +0000 UTC")
+                            try:
+                                # Extract the datetime part and parse it
+                                time_str = time_utc_from_report.replace(" +0000 UTC", "")
+                                report_time = datetime.fromisoformat(time_str).replace(tzinfo=timezone.utc)
+                            except:
+                                # Fallback to current time if parsing fails
+                                report_time = current_time
+
+                            time_diff = report_time - latest_entry_time.replace(tzinfo=timezone.utc)
+                            time_threshold = timedelta(hours=config.TIME_THRESHOLD_HOURS)  # Use config parameter
+
+                            if time_diff < time_threshold:
+                                should_add = False
+                                print(f"Skipping entry: Latest entry is only {time_diff} old (< {config.TIME_THRESHOLD_HOURS} hour(s))")
+
+                        if should_add:
+
+                            # Append to CSV
+                            with open(csv_filename, 'a', newline='') as f:
+                                writer = csv.writer(f)
+                                writer.writerow([
+                                    timestamp_utc,
+                                    mmsi,
+                                    latitude,
+                                    longitude,
+                                    cog,
+                                    sog,
+                                    true_heading,
+                                    nav_status,
+                                    weather_data.get('wetterzustand') if weather_data else None,
+                                    weather_data.get('luftdruck') if weather_data else None,
+                                    weather_data.get('windrichtung') if weather_data else None,
+                                    weather_data.get('windstaerke') if weather_data else None,
+                                    weather_data.get('bewoelkung') if weather_data else None,
+                                    weather_data.get('lufttemperatur') if weather_data else None,
+                                    weather_data.get('wassertemperatur') if weather_data else None,
+                                    weather_data.get('niederschlag') if weather_data else None,
+                                    weather_data.get('wellenhoehe') if weather_data else None
+                                ])
+
+                            print(f"Added new entry to CSV: {csv_filename}")
+
+                            # Update latest entry info for next iteration
+                            try:
+                                time_str = time_utc_from_report.replace(" +0000 UTC", "")
+                                latest_entry_time = datetime.fromisoformat(time_str).replace(tzinfo=timezone.utc)
+                            except:
+                                latest_entry_time = current_time
+                            latest_entry = {
+                                'sog': sog,
+                                'navigational_status': nav_status
+                            }
+
+                        # Also save the complete message to JSON for reference and as well the weather data
+                        output = {
+                            "PositionReport": data,
+                            "WeatherData": weather_data,
+                            "timestamp_utc": timestamp_utc
+                        }
+
+                        with open("position_report.json", "w") as f:
+                            json.dump(output, f, indent=2)
+
+
+                    else:
+                        print("\n✗ FAILED - Could not extract ship data")
+                        print("=" * 60)
+                        print("Also fallback solution failed...Exciting gracefully")
                     return
                 try:
                     message_json = await asyncio.wait_for(websocket.recv(), timeout=5)
@@ -438,7 +962,7 @@ async def connect_ais_stream():
 def print_field_meanings():
     """Print the field meanings for reference"""
     print("\n=== Configuration ===")
-    print(f"Monitored MMSI(s): {config.FILTERS_SHIP_MMSI}")
+    print(f"Monitored MMSI(s): {config.FILTERS_SHIP_MMSI_ID[0]}")
     print(f"Max monitoring duration: {config.MAX_DURATION_MINUTES} minutes")
     print(f"Time threshold for duplicate filtering: {config.TIME_THRESHOLD_HOURS} hour(s)")
 

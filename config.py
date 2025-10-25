@@ -4,7 +4,8 @@
 # Ship MMSI filters - list of MMSI numbers to monitor
 # Example: ["244528000", "123456789", "987654321"]
 # REGINA MARIS is: "244528000"
-FILTERS_SHIP_MMSI = ["244528000"]
+FILTERS_SHIP_MMSI_ID = ["244528000","268855"]
+
 
 # Blue Star ferry is: "241087000"
 #FILTERS_SHIP_MMSI = ["241087000"]
