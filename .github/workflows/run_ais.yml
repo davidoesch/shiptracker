@@ -39,6 +39,7 @@ jobs:
         pip install -r requirements.txt
         pip install selenium
         pip install webdriver-manager
+        pip install beautifulsoup4
     
     - name: Run Python script
       run: |
