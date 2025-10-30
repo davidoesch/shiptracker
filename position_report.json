@@ -1,22 +1,22 @@
 {
   "WeatherData": {
     "wetterzustand": "Bedeckt",
-    "luftdruck": 1005.0,
-    "windrichtung": 169,
-    "windstaerke": 24.2,
+    "luftdruck": 1004.7,
+    "windrichtung": 170,
+    "windstaerke": 26.0,
     "bewoelkung": 100,
-    "lufttemperatur": 12.9,
+    "lufttemperatur": 13.6,
     "niederschlag": 0.0,
     "wassertemperatur": 15.3,
     "wellenhoehe": 0.7
   },
-  "timestamp_utc": "2025-10-30 20:59:00.00000000 +0000 UTC",
+  "timestamp_utc": "2025-10-30 21:41:00.00000000 +0000 UTC",
   "PositionReport": {
-    "lat": 49.66893,
-    "lon": -1.60228,
+    "lat": 49.66891,
+    "lon": -1.60222,
     "nav_status": 1,
-    "timestamp_utc": "2025-10-30 20:59:00.00000000 +0000 UTC",
-    "sog": 0.0,
+    "timestamp_utc": "2025-10-30 21:41:00.00000000 +0000 UTC",
+    "sog": 0.2,
     "cog": 999
   }
 }
