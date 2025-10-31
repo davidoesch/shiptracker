@@ -539,7 +539,8 @@ def extract_ship_details(details_url, debug=False):
             'nav_status': 999,
             'timestamp_utc': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S.00000000 +0000 UTC'),
             'sog': 999,
-            'cog': 999
+            'cog': 999,
+            'shipname': 'none'
         }
 
         # Find all table rows
@@ -598,6 +599,13 @@ def extract_ship_details(details_url, debug=False):
                     if debug:
                         print(f"  → cog = {result['cog']}")
 
+            # Extract ship name
+            elif 'Name' in header:
+                result['shipname'] = value
+                if debug:
+                    print(f"  → shipname = {result['shipname']}")
+
+
         return result
 
     finally:
@@ -638,7 +646,8 @@ def get_ship_data(ship_id, debug=False):
         'nav_status': details['nav_status'],
         'timestamp_utc': details['timestamp_utc'],
         'sog': details['sog'],
-        'cog': details['cog']
+        'cog': details['cog'],
+        'shipname': details['shipname']
     }
 
     return result
@@ -655,6 +664,7 @@ async def process_and_save_ship_data(
     latest_entry,
     latest_entry_time,
     csv_filename,
+    shipname=None,
     ais_message=None,
     meta_data=None
 ):
@@ -773,18 +783,39 @@ async def process_and_save_ship_data(
     if ais_message is not None:
         output["PositionReport"] = ais_message
     else:
-        # For fallback data
+        # For fallback data - create structure matching default mode
         output["PositionReport"] = {
-            "lat": latitude,
-            "lon": longitude,
-            "nav_status": nav_status,
-            "timestamp_utc": timestamp_utc,
-            "sog": sog,
-            "cog": cog
+            "Cog": cog,
+            "CommunicationState": 999,
+            "Latitude": latitude,
+            "Longitude": longitude,
+            "MessageID": 999,
+            "NavigationalStatus": nav_status,
+            "PositionAccuracy": True,
+            "Raim": True,
+            "RateOfTurn": 999,
+            "RepeatIndicator": 999,
+            "Sog": sog,
+            "Spare": 999,
+            "SpecialManoeuvreIndicator": 999,
+            "Timestamp": 999,
+            "TrueHeading": cog,
+            "UserID": 999,
+            "Valid": True
         }
 
     if meta_data is not None:
         output["MetaData"] = meta_data
+    else:
+        # For fallback data - create MetaData structure
+        output["MetaData"] = {
+            "MMSI": mmsi,
+            "MMSI_String": mmsi,
+            "ShipName": shipname,
+            "latitude": latitude,
+            "longitude": longitude,
+            "time_utc": timestamp_utc
+        }
 
     with open("position_report.json", "w") as f:
         json.dump(output, f, indent=2)
@@ -881,6 +912,7 @@ async def connect_ais_stream():
                         sog = data['sog']
                         true_heading = 511
                         nav_status = data['nav_status']
+                        shipname=data['shipname']
                         print("=" * 60)
                         print(f"[{timestamp_utc}] MMSI: {mmsi}, Lat: {latitude}, Lon: {longitude}, SOG: {sog}, Nav Status: {nav_status}")
                         success, latest_entry_time, latest_entry = await process_and_save_ship_data(
@@ -894,7 +926,8 @@ async def connect_ais_stream():
                             nav_status=nav_status,
                             latest_entry=latest_entry,
                             latest_entry_time=latest_entry_time,
-                            csv_filename=csv_filename
+                            csv_filename=csv_filename,
+                            shipname=shipname
                         )
 
 
