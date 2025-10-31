@@ -1,21 +1,21 @@
 {
   "WeatherData": {
-    "wetterzustand": "Leichte Regenschauer",
-    "luftdruck": 1004.2,
-    "windrichtung": 179,
-    "windstaerke": 23.4,
-    "bewoelkung": 89,
-    "lufttemperatur": 13.8,
-    "niederschlag": 0.1,
+    "wetterzustand": "Teilweise bew\u00f6lkt",
+    "luftdruck": 1003.7,
+    "windrichtung": 186,
+    "windstaerke": 21.7,
+    "bewoelkung": 77,
+    "lufttemperatur": 13.9,
+    "niederschlag": 0.0,
     "wassertemperatur": 14.1,
-    "wellenhoehe": 0.82
+    "wellenhoehe": 0.84
   },
-  "timestamp_utc": "2025-10-31 00:59:00.00000000 +0000 UTC",
+  "timestamp_utc": "2025-10-31 03:24:00.00000000 +0000 UTC",
   "PositionReport": {
-    "lat": 49.65002,
-    "lon": -1.61448,
+    "lat": 49.63871,
+    "lon": -1.61933,
     "nav_status": 1,
-    "timestamp_utc": "2025-10-31 00:59:00.00000000 +0000 UTC",
+    "timestamp_utc": "2025-10-31 03:24:00.00000000 +0000 UTC",
     "sog": 0.0,
     "cog": 999
   }
