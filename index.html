@@ -80,11 +80,34 @@
         };
 
         // Funktion zum Berechnen der Zeit seit dem letzten Update
+        // Funktion zum Berechnen der Zeit seit dem letzten Update
         function getTimeSinceUpdate(utcTimeString) {
-            // Parse ISO 8601 format with timezone
-            const updateTime = new Date(utcTimeString);
-            const now = new Date();
-            const diffMs = now - updateTime;}
+            try {
+                // Parse ISO 8601 format with timezone
+                const updateTime = new Date(utcTimeString);
+                const now = new Date();
+                const diffMs = now - updateTime;
+
+                // Convert to appropriate time unit
+                const diffSeconds = Math.floor(diffMs / 1000);
+                const diffMinutes = Math.floor(diffSeconds / 60);
+                const diffHours = Math.floor(diffMinutes / 60);
+                const diffDays = Math.floor(diffHours / 24);
+
+                if (diffDays > 0) {
+                    return `${diffDays} Tag${diffDays !== 1 ? 'en' : ''}`;
+                } else if (diffHours > 0) {
+                    return `${diffHours} Stunde${diffHours !== 1 ? 'n' : ''}`;
+                } else if (diffMinutes > 0) {
+                    return `${diffMinutes} Minute${diffMinutes !== 1 ? 'n' : ''}`;
+                } else {
+                    return `${diffSeconds} Sekunde${diffSeconds !== 1 ? 'n' : ''}`;
+                }
+            } catch (error) {
+                console.error('Error parsing timestamp:', error);
+                return 'unbekannt';
+            }
+        }
 
         // Funktion zum Bestimmen der Schiffsfarbe
         function getShipColor(navStatus, cog, sog) {
