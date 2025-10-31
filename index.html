@@ -81,21 +81,10 @@
 
         // Funktion zum Berechnen der Zeit seit dem letzten Update
         function getTimeSinceUpdate(utcTimeString) {
-            const updateTime = new Date(utcTimeString.replace(' +0000 UTC', 'Z'));
+            // Parse ISO 8601 format with timezone
+            const updateTime = new Date(utcTimeString);
             const now = new Date();
-            const diffMs = now - updateTime;
-            const diffMinutes = Math.floor(diffMs / (1000 * 60));
-            const diffHours = Math.floor(diffMinutes / 60);
-
-            if (diffMinutes < 60) {
-                return `${diffMinutes} Minuten`;
-            } else if (diffHours < 24) {
-                return `${diffHours} Stunden`;
-            } else {
-                const diffDays = Math.floor(diffHours / 24);
-                return `${diffDays} Tage`;
-            }
-        }
+            const diffMs = now - updateTime;}
 
         // Funktion zum Bestimmen der Schiffsfarbe
         function getShipColor(navStatus, cog, sog) {
@@ -276,6 +265,7 @@
                             const startTime = new Date(trackInfo.start_time).toLocaleDateString('de-DE');
                             const endTime = new Date(trackInfo.end_time).toLocaleDateString('de-DE');
 
+
                             // Länge der Fahrtroute in Seemeilen berechnen
                             const trackLength = calculateTrackLength(feature.geometry.coordinates);
 
@@ -356,7 +346,7 @@
                         <div class="status-info">
                             <strong>Status:</strong> ${currentStatus}<br>                            
                             <strong>Geschwindigkeit:</strong> ${posReport.Sog} Knoten<br>
-                            <strong>Kurs:</strong> ${posReport.Cog === 360 ? 'Nicht verfügbar' : posReport.Cog + '°'}<br>                       
+                            <strong>Kurs:</strong> ${posReport.Cog === 360 || posReport.Cog === 999 ? 'Nicht verfügbar' : posReport.Cog + '°'}<br>                       
                             ${weatherData ? `
                             <strong>Wetter:</strong> ${weatherData.wetterzustand}<br>
                             <strong>Lufttemperatur:</strong> ${weatherData.lufttemperatur}°C<br>

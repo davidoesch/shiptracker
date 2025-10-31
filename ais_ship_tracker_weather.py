@@ -1,4 +1,5 @@
 import asyncio
+from unittest import result
 import websockets
 import json
 import csv
@@ -16,6 +17,63 @@ from datetime import datetime
 import re
 import time
 import config  # Import configuration
+from dateutil import parser as date_parser
+
+import math  # Add to your imports if not already there
+
+def create_bounding_box_around_position(latitude, longitude, radius_km=200):
+    """
+    Create a bounding box around a given position.
+
+    Args:
+        latitude: Center latitude in degrees
+        longitude: Center longitude in degrees
+        radius_km: Radius around the center point in kilometers (default: 200)
+
+    Returns:
+        Bounding box in format [[[lat_min, lon_min], [lat_max, lon_max]]]
+        Compatible with AIS Stream API
+    """
+    # Convert radius to degrees
+    # Latitude: 1 degree ≈ 111 km
+    lat_delta = radius_km / 111.0
+
+    # Longitude: depends on latitude (cos(lat) correction)
+    # At equator: 1 degree ≈ 111 km, at poles: 0 km
+    lon_delta = radius_km / (111.0 * math.cos(math.radians(latitude)))
+
+    # Calculate bounds
+    lat_min = max(-90, latitude - lat_delta)
+    lat_max = min(90, latitude + lat_delta)
+    lon_min = max(-180, longitude - lon_delta)
+    lon_max = min(180, longitude + lon_delta)
+
+    # Return in AIS Stream API format
+    return [[[lat_min, lon_min], [lat_max, lon_max]]]
+
+def parse_timestamp_with_tz(timestamp_str):
+    """
+    Parse timestamp string preserving timezone information.
+    Handles multiple formats including ISO format and custom AIS formats.
+    """
+    try:
+        # Use dateutil parser which handles most formats including timezones
+        return date_parser.parse(timestamp_str)
+    except:
+        try:
+            return datetime.fromisoformat(timestamp_str)
+        except:
+            print(f"Warning: Could not parse timestamp '{timestamp_str}', using current UTC time")
+            return datetime.now(timezone.utc)
+
+def format_timestamp_with_tz(dt):
+    """
+    Format datetime object to ISO 8601 string preserving timezone.
+    """
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
+
 
 def get_api_key():
     """
@@ -62,7 +120,7 @@ def create_ship_track_geojson(csv_file, output_file=None):
 
     # Sort by timestamp to ensure proper track order
     # Handle the specific datetime format with timezone
-    df['timestamp_utc'] = pd.to_datetime(df['timestamp_utc'], format='%Y-%m-%d %H:%M:%S.%f %z UTC', errors='coerce')
+    df['timestamp_utc'] = df['timestamp_utc'].apply(parse_timestamp_with_tz)
     df = df.sort_values('timestamp_utc')
 
     # Remove any rows with invalid coordinates
@@ -537,7 +595,7 @@ def extract_ship_details(details_url, debug=False):
         # Initialize results
         result = {
             'nav_status': 999,
-            'timestamp_utc': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S.00000000 +0000 UTC'),
+            'timestamp_utc': format_timestamp_with_tz(datetime.now(timezone.utc)),
             'sog': 999,
             'cog': 999,
             'shipname': 'none'
@@ -569,12 +627,19 @@ def extract_ship_details(details_url, debug=False):
             elif "Vessel's local time" in header or 'local time' in header.lower():
                 # Parse time like "2025-10-25 14:40 (UTC+0)"
                 time_match = re.search(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})', value)
+                tz_match = re.search(r'UTC([+-]\d+)', value)
                 if time_match:
                     time_str = time_match.group(1)
                     try:
                         dt = datetime.strptime(time_str, '%Y-%m-%d %H:%M')
-                        # Format as "2025-09-28 18:51:24.44833531 +0000 UTC"
-                        result['timestamp_utc'] = dt.strftime('%Y-%m-%d %H:%M:%S.00000000 +0000 UTC')
+                        # Apply timezone offset if found
+                        if tz_match:
+                            offset_hours = int(tz_match.group(1))
+                            tz = timezone(timedelta(hours=offset_hours))
+                            dt = dt.replace(tzinfo=tz)
+                        else:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                        result['timestamp_utc'] = format_timestamp_with_tz(dt)
                         if debug:
                             print(f"  → timestamp_utc = {result['timestamp_utc']}")
                     except Exception as e:
@@ -719,13 +784,14 @@ async def process_and_save_ship_data(
     if latest_entry_time is not None:
         # Parse the time_utc from the report
         try:
-            time_str = timestamp_utc.replace(" +0000 UTC", "")
-            report_time = datetime.fromisoformat(time_str).replace(tzinfo=timezone.utc)
+            report_time = parse_timestamp_with_tz(timestamp_utc)
         except:
-            # Fallback to current time if parsing fails
             report_time = datetime.now(timezone.utc)
 
-        time_diff = report_time - latest_entry_time.replace(tzinfo=timezone.utc)
+        # Ensure both timestamps are timezone-aware for comparison
+        if latest_entry_time.tzinfo is None:
+            latest_entry_time = latest_entry_time.replace(tzinfo=timezone.utc)
+        time_diff = report_time - latest_entry_time
         time_threshold = timedelta(hours=config.TIME_THRESHOLD_HOURS)
 
         if time_diff < time_threshold:
@@ -760,8 +826,7 @@ async def process_and_save_ship_data(
 
         # Update latest entry info for next iteration
         try:
-            time_str = timestamp_utc.replace(" +0000 UTC", "")
-            new_latest_entry_time = datetime.fromisoformat(time_str).replace(tzinfo=timezone.utc)
+            new_latest_entry_time = parse_timestamp_with_tz(timestamp_utc)
         except:
             new_latest_entry_time = datetime.now(timezone.utc)
 
@@ -838,9 +903,7 @@ async def connect_ais_stream():
                 # Parse timestamps with custom format handling
                 def parse_timestamp(ts):
                     try:
-                        # Handle format: "2025-09-20 15:57:15.789483127 +0000 UTC"
-                        time_str = str(ts).replace(" +0000 UTC", "")
-                        return pd.to_datetime(time_str, utc=True)
+                        return parse_timestamp_with_tz(str(ts))
                     except:
                         return pd.to_datetime(ts, utc=True)
 
@@ -864,11 +927,16 @@ async def connect_ais_stream():
         print("Error: API key not found. Please set AISSTREAM_API_KEY environment variable or create secrets/aisstream.json")
         return
 
+
+    bounding_box = create_bounding_box_around_position(float(latest_entry['latitude']), float(latest_entry['longitude']), radius_km=200)
+    # Connect to AIS WebSocket stream
     async with websockets.connect("wss://stream.aisstream.io/v0/stream") as websocket:
         subscribe_message = {
             "APIKey": api_key,
             #"BoundingBoxes": [[[-90, -180], [90, 180]]], # Worldwide
-            "BoundingBoxes": config.BOUNDING_BOXES,
+            #"BoundingBoxes": config.BOUNDING_BOXES, #use config bounding boxes
+            "BoundingBoxes": [bounding_box[0]],
+            #"BoundingBoxes": [[[47.8369281981982, -4.40158439920577], [51.440531801801804, 1.1629243992057703]]], # testing
             "FiltersShipMMSI": [config.FILTERS_SHIP_MMSI_ID[0]],
             "FilterMessageTypes": ["PositionReport"]
         }
