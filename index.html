@@ -118,27 +118,48 @@
             return '#fd7e14'; // Orange
         }
 
+        
         // Funktion zum Erstellen eines Schiffs-SVG-Icons
-        function createShipIcon(cog, color) {
-            const rotation = cog === 360 ? 0 : cog;
+        function createShipIcon(cog, color, isMoving) {
+            let svgIcon;
 
-            const svgIcon = `
-                <svg xmlns:xlink="http://www.w3.org/1999/xlink" width="46" height="46" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="48" height="48" fill="white" fill-opacity="0.01"/>
-                    <g transform="rotate(${rotation - 45} 24 24)" fill="${color}" stroke="#000" stroke-width="1">
-                        <path d="M42 6L4 20.1383L24 24.0083L29.0052 44L42 6Z"/>
-                        <polygon points="24,24 29.7,,17 23.5,22"/>
-                    </g>
-                </svg>
-            `;
+            if (!isMoving) {
+                // Kreis für gestopptes Schiff
+                svgIcon = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" fill="${color}" stroke="#000" stroke-width="2"/>
+                    </svg>
+                `;
 
-            return L.divIcon({
-                html: svgIcon,
-                className: 'ship-icon',
-                iconSize: [46, 46],
-                iconAnchor: [23, 23],
-                popupAnchor: [0, -23]
-            });
+                return L.divIcon({
+                    html: svgIcon,
+                    className: 'ship-icon',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12],
+                    popupAnchor: [0, -12]
+                });
+            } else {
+                // Pfeil für fahrendes Schiff
+                const rotation = cog === 360 ? 0 : cog;
+
+                svgIcon = `
+                    <svg xmlns:xlink="http://www.w3.org/1999/xlink" width="46" height="46" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="48" height="48" fill="white" fill-opacity="0.01"/>
+                        <g transform="rotate(${rotation - 45} 24 24)" fill="${color}" stroke="#000" stroke-width="1">
+                            <path d="M42 6L4 20.1383L24 24.0083L29.0052 44L42 6Z"/>
+                            <polygon points="24,24 29.7,,17 23.5,22"/>
+                        </g>
+                    </svg>
+                `;
+
+                return L.divIcon({
+                    html: svgIcon,
+                    className: 'ship-icon',
+                    iconSize: [46, 46],
+                    iconAnchor: [23, 23],
+                    popupAnchor: [0, -23]
+                });
+            }
         }
 
         // Funktion zum Laden der Schiffsdaten vom Server
