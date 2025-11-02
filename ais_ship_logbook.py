@@ -128,26 +128,25 @@ def create_cloud_cover(cloud_cover):
 
     if cloud_cover < 25:
         circle.fillColor = colors.white
+        d.add(circle)
     elif cloud_cover < 50:
-        # Quarter filled - fill should go over cloud circle
+        # Quarter filled - add circle first, then wedge on top
         circle.fillColor = colors.white
         d.add(circle)
-        # Create wedge for quarter fill (positioned to go over cloud circle, not wind barb)
+        # Create wedge for quarter fill (positioned at same center as circle)
         wedge = Wedge(4.8, 4.8, 3.6, 90, 180, fillColor=colors.black, strokeColor=None)
         d.add(wedge)
-        return d
     elif cloud_cover < 75:
-        # Half filled
+        # Half filled - add circle first, then wedge on top
         circle.fillColor = colors.white
         d.add(circle)
         wedge = Wedge(4.8, 4.8, 3.6, 0, 180, fillColor=colors.black, strokeColor=None)
         d.add(wedge)
-        return d
     else:
         # Fully filled
         circle.fillColor = colors.black
+        d.add(circle)
 
-    d.add(circle)
     return d
 
 def create_weather_cell(wind_speed, wind_dir, cloud_cover):
@@ -170,13 +169,16 @@ def create_weather_cell(wind_speed, wind_dir, cloud_cover):
             item.x2 += 9.6
         if hasattr(item, 'cx'):
             item.cx += 9.6
+        # Also shift wedge coordinates for cloud fill
+        if isinstance(item, Wedge):
+            item.centerx += 9.6
         d.add(item)
 
     return d
 
-def sample_hourly_data(day_data):
-    """Sample data to max one entry per hour, keeping first and last entries"""
-    if len(day_data) <= 24:
+def sample_hourly_data(day_data, max_entries=19):
+    """Sample data to fit on one page (max 19 entries + 3 summary rows = 22 total rows)"""
+    if len(day_data) <= max_entries:
         return day_data.reset_index(drop=True)
 
     # Keep first and last
@@ -192,10 +194,10 @@ def sample_hourly_data(day_data):
     result = pd.concat([first, sampled_middle, last]).drop_duplicates(subset=['timestamp_utc'])
     result = result.sort_values('timestamp_utc').reset_index(drop=True)
 
-    # Limit to 24 entries
-    if len(result) > 24:
+    # Limit to max_entries
+    if len(result) > max_entries:
         # Keep first, last, and evenly spaced middle entries
-        indices = [0] + list(np.linspace(1, len(result)-2, 22, dtype=int)) + [len(result)-1]
+        indices = [0] + list(np.linspace(1, len(result)-2, max_entries-2, dtype=int)) + [len(result)-1]
         result = result.iloc[indices].copy()
 
     return result.reset_index(drop=True)
@@ -414,8 +416,8 @@ def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf', anchor_img='big-anc
     previous_day_log = 0
 
     for date_idx, (date, day_data) in enumerate(grouped):
-        # Sample to max one per hour
-        day_data = sample_hourly_data(day_data)
+        # Sample to fit on one page (19 data rows + 3 summary rows = 22 total rows)
+        day_data = sample_hourly_data(day_data, max_entries=19)
 
         # Create header with date
         date_str = date.strftime('%A, %d. %B %Y')
@@ -507,8 +509,8 @@ def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf', anchor_img='big-anc
 
             # Weather condition (Witterung) - doubled width column
             witterung = row.get('wetterzustand', '')
-            if pd.notna(witterung) and len(str(witterung)) > 24:  # Increased from 12
-                witterung = str(witterung)[:24]
+            if pd.notna(witterung) and len(str(witterung)) > 24:  # Doubled from 24
+                witterung = str(witterung)[:12]
             elif pd.isna(witterung):
                 witterung = ''
 
@@ -563,16 +565,16 @@ def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf', anchor_img='big-anc
         previous_day_log = cumulative_log
 
         # Create table - adjusted column widths to fit on one page
-        # Made "Witterung" double width (32mm from 16mm) and "Fahrt" wider (16mm from 11mm)
-        # Reduced other columns to fit
-        col_widths = [11*mm, 8*mm, 9*mm, 9*mm, 12*mm, 32*mm, 10*mm, 10*mm, 10*mm, 9*mm, 9*mm, 9*mm, 16*mm, 11*mm, 42*mm]
+        # Doubled "Witterung" width (64mm from 32mm) and increased "Fahrt" width (20mm from 16mm)
+        # Reduced other columns proportionally to maintain total width
+        col_widths = [10*mm, 10*mm, 10*mm, 10*mm, 11*mm, 32*mm, 10*mm, 10*mm, 11*mm, 10*mm, 10*mm, 10*mm, 20*mm, 10*mm, 38*mm]
 
         table = Table(table_data, colWidths=col_widths, repeatRows=1)
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # Center all rows vertically
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 7),
             ('FONTSIZE', (0, 1), (-1, -1), 6),
