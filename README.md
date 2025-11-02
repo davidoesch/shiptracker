@@ -81,6 +81,7 @@ The map supports permalinks via URL parameters:
 - [Show map with zoom 14](https://davidoesch.github.io/shiptracker/index.html?zoom=14)
 - [Show map with zoom 14 and no popup](https://davidoesch.github.io/shiptracker/index.html?zoom=14&popupzoom=false)
 - [Show map with no popup](https://davidoesch.github.io/shiptracker/index.html?popupzoom=false)
+- [Show map in black and white](https://davidoesch.github.io/shiptracker/index.html?map=osm)
 
 Just append the desired parameters to the URL to customize your view and share direct links to specific map states.
 
