@@ -182,6 +182,102 @@ def create_ship_track_geojson(csv_file, output_file=None):
 
     return geojson
 
+def create_ship_position_geojson(csv_file, output_file=None):
+    """
+    Convert AIS position reports CSV to GeoJSON point format with latest position per day.
+
+    Args:
+        csv_file (str): Path to the AIS CSV file
+        output_file (str): Output GeoJSON file path (optional)
+
+    Returns:
+        dict: GeoJSON object with Point features for latest position each day
+    """
+
+    # Read the CSV file
+    df = pd.read_csv(csv_file)
+
+    # Clean column names (remove any whitespace)
+    df.columns = df.columns.str.strip()
+
+    # Parse timestamps
+    df['timestamp_utc'] = df['timestamp_utc'].apply(parse_timestamp_with_tz)
+
+    # Remove any rows with invalid coordinates
+    df = df.dropna(subset=['latitude', 'longitude'])
+    df = df[(df['latitude'] >= -90) & (df['latitude'] <= 90)]
+    df = df[(df['longitude'] >= -180) & (df['longitude'] <= 180)]
+
+    # Extract date (without time) for grouping
+    df['date'] = df['timestamp_utc'].dt.date
+
+    # Group by MMSI and date, get the latest position for each day
+    geojson_features = []
+
+    for mmsi, mmsi_data in df.groupby('mmsi'):
+        for date, day_data in mmsi_data.groupby('date'):
+            # Get the latest entry for this day
+            latest_entry = day_data.loc[day_data['timestamp_utc'].idxmax()]
+
+            # Format date as DD.MM.YYYY
+            date_formatted = date.strftime('%d.%m.%Y')
+
+            # Create properties with ship and position information
+            properties = {
+                'mmsi': int(mmsi),
+                'date': date_formatted,
+                'timestamp_utc': latest_entry['timestamp_utc'].isoformat(),
+                'cog': float(latest_entry['cog']) if pd.notna(latest_entry.get('cog')) else None,
+                'sog': float(latest_entry['sog']) if pd.notna(latest_entry.get('sog')) else None,
+                'navigational_status': int(latest_entry['navigational_status']) if pd.notna(latest_entry.get('navigational_status')) else None
+            }
+
+            # Add weather data if available
+            weather_fields = ['wetterzustand', 'luftdruck', 'windrichtung', 'windstaerke',
+                            'bewoelkung', 'lufttemperatur', 'wassertemperatur',
+                            'niederschlag', 'wellenhoehe']
+
+            for field in weather_fields:
+                if field in latest_entry and pd.notna(latest_entry[field]):
+                    value = latest_entry[field]
+                    # Convert numpy types to native Python types
+                    if isinstance(value, (pd.Int64Dtype, pd.Float64Dtype)) or hasattr(value, 'item'):
+                        properties[field] = value.item() if hasattr(value, 'item') else value
+                    elif isinstance(value, str):
+                        properties[field] = value
+                    else:
+                        # Handle numeric types
+                        try:
+                            properties[field] = float(value) if '.' in str(value) else int(value)
+                        except (ValueError, TypeError):
+                            properties[field] = str(value)
+
+            # Create Point feature with explicit type conversion for coordinates
+            feature = {
+                'type': 'Feature',
+                'geometry': {
+                    'type': 'Point',
+                    'coordinates': [float(latest_entry['longitude']), float(latest_entry['latitude'])]
+                },
+                'properties': properties
+            }
+
+            geojson_features.append(feature)
+
+    # Create the complete GeoJSON object
+    geojson = {
+        'type': 'FeatureCollection',
+        'features': geojson_features
+    }
+
+    # Save to file if output path is provided
+    if output_file:
+        with open(output_file, 'w') as f:
+            json.dump(geojson, f, indent=2)
+        print(f"GeoJSON saved to {output_file}")
+
+    return geojson
+
 async def get_weather_data(latitude, longitude):
     """
     Retrieve atmospheric and marine weather data from Open-Meteo API for given coordinates
@@ -1105,3 +1201,5 @@ if __name__ == "__main__":
     asyncio.run(connect_ais_stream())
     # Generate track GeoJSON (LineString)
     track_geojson = create_ship_track_geojson('ais_position_reports.csv', 'ship_tracks.geojson')
+    # Genereate position points GeoJSON (Point features)
+    position_geojson = create_ship_position_geojson('ais_position_reports.csv', 'ship_position.geojson')

@@ -192,6 +192,22 @@
             }
         }
 
+        // Funktion zum Laden der Schiffspositionen
+        async function loadShipPositions() {
+            try {
+                const response = await fetch('ship_position.geojson');
+                if (!response.ok) {
+                    console.warn('Schiffspositionen-Datei nicht gefunden oder nicht erreichbar');
+                    return null;
+                }
+                const positionsData = await response.json();
+                return positionsData;
+            } catch (error) {
+                console.warn('Fehler beim Laden der Schiffspositionen:', error);
+                return null;
+            }
+        }
+
         // Globale Variablen für Karte und Layer
         let map;
         let shipMarker;
@@ -200,6 +216,8 @@
         let currentShipData = null;
         let esriImagery, esriLabels, osmPositron;
         let currentBasemap = 'satellite'; // 'satellite' or 'osm'
+        let positionMarkers = [];
+        let positionsData = null;
 
         // Funktion zum Parsen der URL-Parameter
         function getUrlParameters() {
@@ -288,7 +306,7 @@
 
                 // OpenStreetMap POSITRON
                 osmPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_light/{z}/{x}/{y}{r}.png', {
-                    
+
                     subdomains: 'abcd',
                     maxZoom: 19
                 });
@@ -302,10 +320,77 @@
                     esriLabels.addTo(map);
                 }
 
-                
+
 
                 // Schiffsspuren laden und anzeigen
                 await loadAndDisplayTracks();
+
+                // Schiffspositionen laden und anzeigen
+                await loadAndDisplayPositions();
+
+                // Funktion zum Anzeigen/Ausblenden der Positionsmarker basierend auf Zoom-Level
+                function updatePositionMarkersVisibility() {
+                    const currentZoom = map.getZoom();
+                    const shouldShow = currentZoom >= 8 && currentZoom <= 22;
+
+                    positionMarkers.forEach(marker => {
+                        if (shouldShow) {
+                            if (!map.hasLayer(marker)) {
+                                marker.addTo(map);
+                            }
+                        } else {
+                            if (map.hasLayer(marker)) {
+                                map.removeLayer(marker);
+                            }
+                        }
+                    });
+                }
+
+                // Funktion zum Laden und Anzeigen der Schiffspositionen
+                async function loadAndDisplayPositions() {
+                    try {
+                        positionsData = await loadShipPositions();
+
+                        if (positionsData && positionsData.features) {
+                            positionsData.features.forEach(feature => {
+                                if (feature.geometry && feature.geometry.type === 'Point') {
+                                    const coords = feature.geometry.coordinates;
+                                    const props = feature.properties;
+
+                                    // Roten Kreis-Marker erstellen
+                                    const positionIcon = L.divIcon({
+                                        html: `
+                                            <div style="position: relative;">
+                                                <svg width="12" height="12" style="display: block;">
+                                                    <circle cx="6" cy="6" r="5" fill="red" stroke="white" stroke-width="1"/>
+                                                </svg>
+                                                <div style="position: absolute; left: 14px; top: -4px; white-space: nowrap; font-size: 11px; font-weight: bold; color: red; text-shadow: -1px -1px 0 white, 1px -1px 0 white, -1px 1px 0 white, 1px 1px 0 white;">${props.date}</div>
+                                            </div>
+                                        `,
+                                        className: 'position-marker',
+                                        iconSize: [12, 12],
+                                        iconAnchor: [6, 6]
+                                    });
+
+                                    // Marker erstellen (GeoJSON verwendet [lon, lat], Leaflet verwendet [lat, lon])
+                                    const marker = L.marker([coords[1], coords[0]], {
+                                        icon: positionIcon
+                                    });
+
+                                    positionMarkers.push(marker);
+                                }
+                            });
+
+                            // Initial visibility basierend auf aktuellem Zoom
+                            updatePositionMarkersVisibility();
+
+                            // Event-Listener für Zoom-Änderungen
+                            map.on('zoomend', updatePositionMarkersVisibility);
+                        }
+                    } catch (error) {
+                        console.warn('Schiffspositionen konnten nicht geladen werden:', error);
+                    }
+                }
 
                 // Schiffsdaten initial anzeigen
                 updateShipDisplay();
