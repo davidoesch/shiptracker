@@ -926,7 +926,7 @@ async def connect_ais_stream():
     if not api_key:
         print("Error: API key not found. Please set AISSTREAM_API_KEY environment variable or create secrets/aisstream.json")
         return
-
+    # Create bounding box around latest known position
 
     bounding_box = create_bounding_box_around_position(float(latest_entry['latitude']), float(latest_entry['longitude']), radius_km=200)
     # Connect to AIS WebSocket stream
