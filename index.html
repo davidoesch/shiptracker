@@ -302,69 +302,7 @@
                     esriLabels.addTo(map);
                 }
 
-                // Permalink-Control hinzufügen (kein Map-Toggle)
-                const permalinkControl = L.control({ position: 'topleft' });
-                permalinkControl.onAdd = function (map) {
-                    const div = L.DomUtil.create('div', 'permalink-control');
-                    div.innerHTML = `
-                        <button id="permalinkBtn" style="
-                            background: white;
-                            border: 2px solid rgba(0,0,0,0.2);
-                            border-radius: 4px;
-                            padding: 8px 12px;
-                            font-size: 14px;
-                            font-weight: bold;
-                            cursor: pointer;
-                            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
-                        ">
-                            🔗 Permalink
-                        </button>
-                    `;
-                    L.DomEvent.disableClickPropagation(div);
-                    return div;
-                };
-                permalinkControl.addTo(map);
-
-                // Permalink-Button-Handler: Adresse mit aktuellem Kartenzustand erzeugen und kopieren
-                document.getElementById('permalinkBtn').addEventListener('click', function () {
-                    const btn = this;
-                    const url = new URL(window.location);
-                    // Basiskarten-Parameter und Zoom/Center setzen
-                    url.searchParams.set('map', currentBasemap);
-                    url.searchParams.set('zoom', map.getZoom());
-                    const center = map.getCenter();
-                    url.searchParams.set('lat', center.lat.toFixed(5));
-                    url.searchParams.set('lng', center.lng.toFixed(5));
-
-                    // URL in Adresszeile aktualisieren (permalink)
-                    try {
-                        window.history.replaceState({}, '', url);
-                    } catch (e) {
-                        // ignore
-                    }
-
-                    // In die Zwischenablage kopieren
-                    navigator.clipboard.writeText(url.toString()).then(() => {
-                        const old = btn.innerHTML;
-                        btn.innerHTML = 'Link kopiert';
-                        setTimeout(() => btn.innerHTML = old, 2000);
-                    }).catch(() => {
-                        // Fallback: temporäres Textarea zum Kopieren
-                        const ta = document.createElement('textarea');
-                        ta.value = url.toString();
-                        document.body.appendChild(ta);
-                        ta.select();
-                        const old = btn.innerHTML;
-                        try {
-                            document.execCommand('copy');
-                            btn.innerHTML = 'Link kopiert';
-                            setTimeout(() => btn.innerHTML = old, 2000);
-                        } catch (err) {
-                            alert('Permalink:\n' + url.toString());
-                        }
-                        document.body.removeChild(ta);
-                    });
-                });
+                
 
                 // Schiffsspuren laden und anzeigen
                 await loadAndDisplayTracks();
