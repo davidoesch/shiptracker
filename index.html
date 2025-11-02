@@ -80,7 +80,6 @@
         };
 
         // Funktion zum Berechnen der Zeit seit dem letzten Update
-        // Funktion zum Berechnen der Zeit seit dem letzten Update
         function getTimeSinceUpdate(utcTimeString) {
             try {
                 // Parse ISO 8601 format with timezone
@@ -199,13 +198,16 @@
         let trackLayers = [];
         let infoControl;
         let currentShipData = null;
+        let esriImagery, esriLabels, osmPositron;
+        let currentBasemap = 'satellite'; // 'satellite' or 'osm'
 
         // Funktion zum Parsen der URL-Parameter
         function getUrlParameters() {
             const params = new URLSearchParams(window.location.search);
             return {
                 popupzoom: params.get('popupzoom') !== 'false', // default true
-                zoom: parseInt(params.get('zoom')) || 12 // default 12
+                zoom: parseInt(params.get('zoom')) || 12, // default 12
+                map: params.get('map') || 'satellite' // 'satellite' or 'osm'
             };
         }
 
@@ -267,12 +269,95 @@
                     zoomControl: urlParams.popupzoom // Zoom-Controls basierend auf URL-Parameter
                 }).setView([posReport.Latitude, posReport.Longitude], urlParams.zoom);
 
+                // Basiskarten definieren
+                // Esri Satellite Imagery
+                esriImagery = L.tileLayer(
+                    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                        attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics',
+                        maxZoom: 19
+                    }
+                );
+
+                // Esri Labels overlay (boundaries, roads, places)
+                esriLabels = L.tileLayer(
+                    'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                        attribution: 'Labels &copy; Esri',
+                        maxZoom: 19
+                    }
+                );
+
                 // OpenStreetMap POSITRON
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                osmPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
                     attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                     subdomains: 'abcd',
                     maxZoom: 19
-                }).addTo(map);
+                });
+
+                // Basiskarte basierend auf URL-Parameter setzen
+                currentBasemap = urlParams.map;
+                if (currentBasemap === 'osm') {
+                    osmPositron.addTo(map);
+                } else {
+                    esriImagery.addTo(map);
+                    esriLabels.addTo(map);
+                }
+
+                // Map-Toggle-Control hinzufügen
+                const mapToggle = L.control({ position: 'topleft' });
+                mapToggle.onAdd = function (map) {
+                    const div = L.DomUtil.create('div', 'map-toggle-control');
+                    div.innerHTML = `
+                        <button id="mapToggleBtn" style="
+                            background: white;
+                            border: 2px solid rgba(0,0,0,0.2);
+                            border-radius: 4px;
+                            padding: 8px 12px;
+                            font-size: 14px;
+                            font-weight: bold;
+                            cursor: pointer;
+                            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+                        ">
+                            ${currentBasemap === 'satellite' ? '🗺️ Straßenkarte' : '🛰️ Satellit'}
+                        </button>
+                    `;
+                    
+                    // Verhindere Map-Interaktion beim Klicken auf den Button
+                    L.DomEvent.disableClickPropagation(div);
+                    
+                    return div;
+                };
+                mapToggle.addTo(map);
+
+                // Toggle-Funktion
+                document.addEventListener('click', function(e) {
+                    if (e.target && e.target.id === 'mapToggleBtn') {
+                        if (currentBasemap === 'satellite') {
+                            // Wechsel zu OSM
+                            map.removeLayer(esriImagery);
+                            map.removeLayer(esriLabels);
+                            osmPositron.addTo(map);
+                            currentBasemap = 'osm';
+                            e.target.innerHTML = '🛰️ Satellit';
+                            
+                            // URL-Parameter aktualisieren
+                            const url = new URL(window.location);
+                            url.searchParams.set('map', 'osm');
+                            window.history.replaceState({}, '', url);
+                        } else {
+                            // Wechsel zu Satellit
+                            map.removeLayer(osmPositron);
+                            esriImagery.addTo(map);
+                            esriLabels.addTo(map);
+                            currentBasemap = 'satellite';
+                            e.target.innerHTML = '🗺️ Straßenkarte';
+                            
+                            // URL-Parameter aktualisieren
+                            const url = new URL(window.location);
+                            url.searchParams.set('map', 'satellite');
+                            window.history.replaceState({}, '', url);
+                        }
+                    }
+                });
 
                 // Schiffsspuren laden und anzeigen
                 await loadAndDisplayTracks();
