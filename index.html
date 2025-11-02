@@ -117,7 +117,7 @@
             return '#fd7e14'; // Orange
         }
 
-        
+
         // Funktion zum Erstellen eines Schiffs-SVG-Icons
         function createShipIcon(cog, color, isMoving) {
             let svgIcon;
@@ -273,21 +273,21 @@
                 // Esri Satellite Imagery
                 esriImagery = L.tileLayer(
                     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                        attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics',
-                        maxZoom: 19
-                    }
+                    attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics',
+                    maxZoom: 19
+                }
                 );
 
                 // Esri Labels overlay (boundaries, roads, places)
                 esriLabels = L.tileLayer(
                     'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-                        attribution: 'Labels &copy; Esri',
-                        maxZoom: 19
-                    }
+                    attribution: 'Labels &copy; Esri',
+                    maxZoom: 19
+                }
                 );
 
                 // OpenStreetMap POSITRON
-                osmPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                osmPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
                     attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                     subdomains: 'abcd',
                     maxZoom: 19
@@ -302,12 +302,12 @@
                     esriLabels.addTo(map);
                 }
 
-                // Map-Toggle-Control hinzufügen
-                const mapToggle = L.control({ position: 'topleft' });
-                mapToggle.onAdd = function (map) {
-                    const div = L.DomUtil.create('div', 'map-toggle-control');
+                // Permalink-Control hinzufügen (kein Map-Toggle)
+                const permalinkControl = L.control({ position: 'topleft' });
+                permalinkControl.onAdd = function (map) {
+                    const div = L.DomUtil.create('div', 'permalink-control');
                     div.innerHTML = `
-                        <button id="mapToggleBtn" style="
+                        <button id="permalinkBtn" style="
                             background: white;
                             border: 2px solid rgba(0,0,0,0.2);
                             border-radius: 4px;
@@ -317,46 +317,53 @@
                             cursor: pointer;
                             box-shadow: 0 1px 5px rgba(0,0,0,0.4);
                         ">
-                            ${currentBasemap === 'satellite' ? '🗺️ Straßenkarte' : '🛰️ Satellit'}
+                            🔗 Permalink
                         </button>
                     `;
-                    
-                    // Verhindere Map-Interaktion beim Klicken auf den Button
                     L.DomEvent.disableClickPropagation(div);
-                    
                     return div;
                 };
-                mapToggle.addTo(map);
+                permalinkControl.addTo(map);
 
-                // Toggle-Funktion
-                document.addEventListener('click', function(e) {
-                    if (e.target && e.target.id === 'mapToggleBtn') {
-                        if (currentBasemap === 'satellite') {
-                            // Wechsel zu OSM
-                            map.removeLayer(esriImagery);
-                            map.removeLayer(esriLabels);
-                            osmPositron.addTo(map);
-                            currentBasemap = 'osm';
-                            e.target.innerHTML = '🛰️ Satellit';
-                            
-                            // URL-Parameter aktualisieren
-                            const url = new URL(window.location);
-                            url.searchParams.set('map', 'osm');
-                            window.history.replaceState({}, '', url);
-                        } else {
-                            // Wechsel zu Satellit
-                            map.removeLayer(osmPositron);
-                            esriImagery.addTo(map);
-                            esriLabels.addTo(map);
-                            currentBasemap = 'satellite';
-                            e.target.innerHTML = '🗺️ Straßenkarte';
-                            
-                            // URL-Parameter aktualisieren
-                            const url = new URL(window.location);
-                            url.searchParams.set('map', 'satellite');
-                            window.history.replaceState({}, '', url);
-                        }
+                // Permalink-Button-Handler: Adresse mit aktuellem Kartenzustand erzeugen und kopieren
+                document.getElementById('permalinkBtn').addEventListener('click', function () {
+                    const btn = this;
+                    const url = new URL(window.location);
+                    // Basiskarten-Parameter und Zoom/Center setzen
+                    url.searchParams.set('map', currentBasemap);
+                    url.searchParams.set('zoom', map.getZoom());
+                    const center = map.getCenter();
+                    url.searchParams.set('lat', center.lat.toFixed(5));
+                    url.searchParams.set('lng', center.lng.toFixed(5));
+
+                    // URL in Adresszeile aktualisieren (permalink)
+                    try {
+                        window.history.replaceState({}, '', url);
+                    } catch (e) {
+                        // ignore
                     }
+
+                    // In die Zwischenablage kopieren
+                    navigator.clipboard.writeText(url.toString()).then(() => {
+                        const old = btn.innerHTML;
+                        btn.innerHTML = 'Link kopiert';
+                        setTimeout(() => btn.innerHTML = old, 2000);
+                    }).catch(() => {
+                        // Fallback: temporäres Textarea zum Kopieren
+                        const ta = document.createElement('textarea');
+                        ta.value = url.toString();
+                        document.body.appendChild(ta);
+                        ta.select();
+                        const old = btn.innerHTML;
+                        try {
+                            document.execCommand('copy');
+                            btn.innerHTML = 'Link kopiert';
+                            setTimeout(() => btn.innerHTML = old, 2000);
+                        } catch (err) {
+                            alert('Permalink:\n' + url.toString());
+                        }
+                        document.body.removeChild(ta);
+                    });
                 });
 
                 // Schiffsspuren laden und anzeigen
