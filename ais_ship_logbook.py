@@ -21,11 +21,20 @@ from matplotlib.patches import Circle as MPLCircle
 from io import BytesIO
 import numpy as np
 import os
+
+try:
+    import geopandas as gpd
+    from shapely.geometry import Point, LineString
+except ImportError:
+    print("Warning: geopandas not installed. Install with: pip install geopandas")
+    gpd = None
+
 try:
     import contextily as ctx
 except ImportError:
     print("Warning: contextily not installed. Install with: pip install contextily")
     ctx = None
+
 
 def calculate_distance(lat1, lon1, lat2, lon2):
     """Calculate distance between two points in nautical miles"""
@@ -36,6 +45,7 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
     c = 2 * math.asin(math.sqrt(a))
     return R * c
+
 
 def format_position(lat, lon):
     """Format coordinates in degrees and decimal minutes"""
@@ -49,6 +59,7 @@ def format_position(lat, lon):
 
     return f"{lat_deg}° {lat_min:.3f}' {lat_dir} {lon_deg}° {lon_min:.3f}' {lon_dir}"
 
+
 def get_wind_direction_abbreviation(degrees):
     """Convert wind direction degrees to abbreviation"""
     if pd.isna(degrees):
@@ -57,6 +68,7 @@ def get_wind_direction_abbreviation(degrees):
             'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
     ix = int((degrees + 11.25) / 22.5)
     return dirs[ix % 16]
+
 
 def create_wind_barb(wind_speed, wind_dir):
     """Create wind barb symbol - reduced by 20%"""
@@ -111,6 +123,7 @@ def create_wind_barb(wind_speed, wind_dir):
 
     return d
 
+
 def create_cloud_cover(cloud_cover):
     """Create cloud cover circle symbol - reduced by 20%"""
     d = Drawing(9.6, 9.6)  # Reduced from 12 to 9.6
@@ -149,6 +162,7 @@ def create_cloud_cover(cloud_cover):
 
     return d
 
+
 def create_weather_cell(wind_speed, wind_dir, cloud_cover):
     """Create combined cell with wind barb and cloud cover side by side - reduced by 20%"""
     d = Drawing(19.2, 9.6)  # Reduced from (24, 12)
@@ -176,6 +190,7 @@ def create_weather_cell(wind_speed, wind_dir, cloud_cover):
 
     return d
 
+
 def sample_hourly_data(day_data, max_entries=19):
     """Sample data to fit on one page (max 19 entries + 3 summary rows = 22 total rows)"""
     if len(day_data) <= max_entries:
@@ -201,6 +216,7 @@ def sample_hourly_data(day_data, max_entries=19):
         result = result.iloc[indices].copy()
 
     return result.reset_index(drop=True)
+
 
 def create_pressure_chart(day_data):
     """Create pressure chart for the day with 0-24 hour range"""
@@ -244,90 +260,94 @@ def create_pressure_chart(day_data):
 
     return buf
 
+
 def create_track_map(day_data):
-    """Create track map using contextily ESRI basemap with correct scale"""
-    from matplotlib.transforms import Affine2D
-    import matplotlib.patches as mpatches
+    """Create track map using geopandas and contextily ESRI basemap - faster and undistorted"""
+
+    if gpd is None or ctx is None:
+        # Fallback to simple plot if libraries not available
+        fig, ax = plt.subplots(figsize=(2.8, 2.0))
+        ax.plot(day_data['longitude'], day_data['latitude'], 'r-', linewidth=2)
+        ax.set_aspect('equal')
+        ax.axis('off')
+        buf = BytesIO()
+        plt.savefig(buf, format='png', dpi=150, bbox_inches='tight', pad_inches=0)
+        buf.seek(0)
+        plt.close()
+        return buf
 
     lats = day_data['latitude'].values
     lons = day_data['longitude'].values
     speeds = day_data['sog'].values
 
-    # Calculate bounds
-    lat_min, lat_max = lats.min(), lats.max()
-    lon_min, lon_max = lons.min(), lons.max()
+    # Handle case with only one point (cannot create LineString)
+    if len(lats) < 2:
+        # Create simple point map
+        fig, ax = plt.subplots(figsize=(2.8, 2.0))
 
-    lat_center = (lat_min + lat_max) / 2
-    lon_center = (lon_min + lon_max) / 2
+        # Create single point GeoDataFrame
+        point = Point(lons[0], lats[0])
+        gdf_point = gpd.GeoDataFrame({'geometry': [point]}, crs='EPSG:4326')
+        gdf_point_3857 = gdf_point.to_crs('EPSG:3857')
 
-    # Calculate approximate scale in meters
-    # 1 degree latitude ≈ 111 km
-    # 1 degree longitude ≈ 111 km * cos(latitude)
-    lat_range_m = (lat_max - lat_min) * 111000
-    lon_range_m = (lon_max - lon_min) * 111000 * np.cos(np.radians(lat_center))
+        # Plot the single point
+        gdf_point_3857.plot(ax=ax, color='#00AA00', markersize=100,
+                           edgecolor='white', linewidth=2, zorder=15, marker='o')
 
-    max_range_m = max(lat_range_m, lon_range_m)
+        # Set bounds with padding around single point
+        x, y = gdf_point_3857.geometry.iloc[0].x, gdf_point_3857.geometry.iloc[0].y
+        padding = 2500  # 2.5 km padding in Web Mercator units
+        ax.set_xlim(x - padding, x + padding)
+        ax.set_ylim(y - padding, y + padding)
+        ax.set_aspect('equal', adjustable='box')
 
-    # Ensure minimum scale of 1:25000 (means max 2.5 km visible range for 10cm plot)
-    min_visible_range = 2500  # meters for 1:25000 scale
-    if max_range_m < min_visible_range:
-        max_range_m = min_visible_range
-
-    # Add padding
-    padding = 0.2
-    max_range_m *= (1 + padding)
-
-    # Calculate new bounds maintaining aspect ratio
-    lat_range_deg = max_range_m / 111000
-    lon_range_deg = max_range_m / (111000 * np.cos(np.radians(lat_center)))
-
-    # Use Web Mercator projection (EPSG:3857)
-    fig, ax = plt.subplots(figsize=(2.8, 2.0))
-
-    # Convert to Web Mercator
-    def lonlat_to_webmercator(lon, lat):
-        x = lon * 20037508.34 / 180
-        y = np.log(np.tan((90 + lat) * np.pi / 360)) / (np.pi / 180)
-        y = y * 20037508.34 / 180
-        return x, y
-
-    x_coords, y_coords = lonlat_to_webmercator(lons, lats)
-
-    # Set extent in Web Mercator
-    x_min, x_max = x_coords.min(), x_coords.max()
-    y_min, y_max = y_coords.min(), y_coords.max()
-
-    x_range = max(x_max - x_min, 100)  # minimum 100m
-    y_range = max(y_max - y_min, 100)
-
-    # Make square with padding
-    max_range = max(x_range, y_range) * 1.3
-    x_center = (x_min + x_max) / 2
-    y_center = (y_min + y_max) / 2
-
-    ax.set_xlim(x_center - max_range/2, x_center + max_range/2)
-    ax.set_ylim(y_center - max_range/2, y_center + max_range/2)
-    ax.set_aspect('equal', adjustable='box')
-
-    # Add ESRI basemap
-    if ctx is not None:
+        # Add basemap
         try:
-            # Add satellite imagery with explicit zoom to avoid warning
             ctx.add_basemap(ax, source=ctx.providers.Esri.WorldImagery,
-                          crs='EPSG:3857', alpha=0.9, zoom='auto', attribution=False)
-            # Add labels overlay
+                           crs='EPSG:3857', alpha=0.9, zoom='auto', attribution=False)
             ctx.add_basemap(ax, source=ctx.providers.Esri.WorldGrayCanvas,
-                          crs='EPSG:3857', alpha=0.3, zoom='auto', attribution=False)
+                           crs='EPSG:3857', alpha=0.3, zoom='auto', attribution=False)
         except Exception as e:
             print(f"Could not load map tiles: {e}")
             ax.set_facecolor('#E8F4F8')
-    else:
-        ax.set_facecolor('#E8F4F8')
 
-    # Plot track with speed coloring
+        ax.axis('off')
+        plt.tight_layout(pad=0)
+
+        buf = BytesIO()
+        plt.savefig(buf, format='png', dpi=150, bbox_inches='tight', pad_inches=0)
+        buf.seek(0)
+        plt.close()
+        return buf
+
+    # Create GeoDataFrame with LineString geometry (requires at least 2 points)
+    points = [Point(lon, lat) for lon, lat in zip(lons, lats)]
+    line = LineString([(lon, lat) for lon, lat in zip(lons, lats)])
+
+    # Create GeoDataFrame for the track line
+    gdf_line = gpd.GeoDataFrame({'geometry': [line]}, crs='EPSG:4326')
+
+    # Create GeoDataFrame for points (start/end markers)
+    gdf_points = gpd.GeoDataFrame({
+        'type': ['start', 'end'],
+        'geometry': [points[0], points[-1]]
+    }, crs='EPSG:4326')
+
+    # Convert to Web Mercator (EPSG:3857) for contextily
+    gdf_line_3857 = gdf_line.to_crs('EPSG:3857')
+    gdf_points_3857 = gdf_points.to_crs('EPSG:3857')
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=(2.8, 2.0))
+
+    # Plot track with speed-based coloring
     max_speed = max(speeds.max(), 1)
 
-    for i in range(len(x_coords)-1):
+    # Convert individual segments to Web Mercator for coloring
+    for i in range(len(lons)-1):
+        segment = LineString([(lons[i], lats[i]), (lons[i+1], lats[i+1])])
+        gdf_segment = gpd.GeoDataFrame({'geometry': [segment]}, crs='EPSG:4326').to_crs('EPSG:3857')
+
         speed_ratio = speeds[i] / max_speed
         # Green (slow) to Yellow to Red (fast)
         if speed_ratio < 0.5:
@@ -335,16 +355,47 @@ def create_track_map(day_data):
         else:
             color = plt.cm.YlOrRd(0.3 + (speed_ratio - 0.5) * 2 * 0.7)
 
-        ax.plot([x_coords[i], x_coords[i+1]], [y_coords[i], y_coords[i+1]],
-               color=color, linewidth=3, alpha=0.9, zorder=10)
+        gdf_segment.plot(ax=ax, color=color, linewidth=3, alpha=0.9, zorder=10)
+
+    # Get bounds and add padding
+    xmin, ymin, xmax, ymax = gdf_line_3857.total_bounds
+
+    # Calculate range and ensure minimum scale
+    x_range = max(xmax - xmin, 100)  # minimum 100m in Web Mercator
+    y_range = max(ymax - ymin, 100)
+
+    # Make square with padding (30% padding like original)
+    max_range = max(x_range, y_range) * 1.3
+    x_center = (xmin + xmax) / 2
+    y_center = (ymin + ymax) / 2
+
+    # Set bounds
+    ax.set_xlim(x_center - max_range/2, x_center + max_range/2)
+    ax.set_ylim(y_center - max_range/2, y_center + max_range/2)
+    ax.set_aspect('equal', adjustable='box')
+
+    # Add ESRI basemaps
+    try:
+        # Add satellite imagery
+        ctx.add_basemap(ax, source=ctx.providers.Esri.WorldImagery,
+                       crs='EPSG:3857', alpha=0.9, zoom='auto', attribution=False)
+        # Add labels/boundaries overlay
+        ctx.add_basemap(ax, source=ctx.providers.Esri.WorldGrayCanvas,
+                       crs='EPSG:3857', alpha=0.3, zoom='auto', attribution=False)
+    except Exception as e:
+        print(f"Could not load map tiles: {e}")
+        ax.set_facecolor('#E8F4F8')
 
     # Add start and end markers
-    ax.plot(x_coords[0], y_coords[0], 'o', color='#00AA00', markersize=8,
-           markeredgecolor='white', markeredgewidth=1.5, zorder=15)
-    ax.plot(x_coords[-1], y_coords[-1], '^', color='#CC0000', markersize=10,
-           markeredgecolor='white', markeredgewidth=1.5, zorder=15)
+    start_point = gdf_points_3857[gdf_points_3857['type'] == 'start']
+    end_point = gdf_points_3857[gdf_points_3857['type'] == 'end']
 
-    # Remove all axis annotations
+    start_point.plot(ax=ax, color='#00AA00', markersize=60,
+                     edgecolor='white', linewidth=1.5, zorder=15, marker='o')
+    end_point.plot(ax=ax, color='#CC0000', markersize=80,
+                   edgecolor='white', linewidth=1.5, zorder=15, marker='^')
+
+    # Remove axis
     ax.axis('off')
 
     plt.tight_layout(pad=0)
@@ -357,6 +408,8 @@ def create_track_map(day_data):
 
     return buf
 
+
+
 def create_title_page(c, width, height):
     """Create the title page"""
     c.setFont("Helvetica-Bold", 36)
@@ -366,6 +419,7 @@ def create_title_page(c, width, height):
     c.setFont("Helvetica-Bold", 24)
     c.drawCentredString(width/2, height/2 - 50, "Ship Regina Maris")
     c.showPage()
+
 
 def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf', anchor_img='big-anchor.png', sailing_img='sailing-boat.png'):
     """
@@ -509,8 +563,8 @@ def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf', anchor_img='big-anc
 
             # Weather condition (Witterung) - doubled width column
             witterung = row.get('wetterzustand', '')
-            if pd.notna(witterung) and len(str(witterung)) > 24:  # Doubled from 24
-                witterung = str(witterung)[:12]
+            if pd.notna(witterung) and len(str(witterung)) > 24:
+                witterung = str(witterung)[:24]
             elif pd.isna(witterung):
                 witterung = ''
 
@@ -565,8 +619,6 @@ def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf', anchor_img='big-anc
         previous_day_log = cumulative_log
 
         # Create table - adjusted column widths to fit on one page
-        # Doubled "Witterung" width (64mm from 32mm) and increased "Fahrt" width (20mm from 16mm)
-        # Reduced other columns proportionally to maintain total width
         col_widths = [10*mm, 10*mm, 10*mm, 10*mm, 11*mm, 32*mm, 10*mm, 10*mm, 11*mm, 10*mm, 10*mm, 10*mm, 20*mm, 10*mm, 38*mm]
 
         table = Table(table_data, colWidths=col_widths, repeatRows=1)
@@ -592,6 +644,7 @@ def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf', anchor_img='big-anc
     # Build PDF
     pdf.build(story)
     print(f"Logbook PDF generated: {output_pdf}")
+
 
 # Example usage
 if __name__ == "__main__":

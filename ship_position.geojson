@@ -347,6 +347,33 @@
         "niederschlag": 0.0,
         "wellenhoehe": 0.84
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.64831,
+          49.6738
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "04.11.2025",
+        "timestamp_utc": "2025-11-04T18:26:00+00:00",
+        "cog": 293.0,
+        "sog": 6.8,
+        "navigational_status": 0,
+        "wetterzustand": "Bedeckt",
+        "luftdruck": 1009.2,
+        "windrichtung": 178,
+        "windstaerke": 29.5,
+        "bewoelkung": 100,
+        "lufttemperatur": 15.5,
+        "wassertemperatur": 14.9,
+        "niederschlag": 0.0,
+        "wellenhoehe": 0.72
+      }
     }
   ]
 }

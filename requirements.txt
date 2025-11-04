@@ -1,3 +1,7 @@
 websockets
 pandas
 aiohttp
+reportlab 
+matplotlib 
+numpy
+contextily
