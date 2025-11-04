@@ -481,16 +481,17 @@
                 const metaData = currentShipData.MetaData;
                 const weatherData = currentShipData.WeatherData;
 
-                // Schiffsfarbe bestimmen
-                const shipColor = getShipColor(posReport.NavigationalStatus, posReport.Cog, posReport.Sog);
-
-                // Schiffs-Icon erstellen - Verwende COG (Course over Ground) für die Rotation
-                const shipIcon = createShipIcon(posReport.Cog, shipColor);
 
                 // Status bestimmen
                 const statusText = navigationStatus[posReport.NavigationalStatus] || "Unbekannt";
                 const isMoving = posReport.NavigationalStatus !== 1 && posReport.Cog !== 360 && posReport.Sog > 0;
                 const currentStatus = isMoving ? "Unterwegs" : "Gestoppt/Vor Anker";
+
+                // Schiffsfarbe bestimmen
+                const shipColor = getShipColor(posReport.NavigationalStatus, posReport.Cog, posReport.Sog);
+
+                // Schiffs-Icon erstellen - Verwende COG (Course over Ground) für die Rotation
+                const shipIcon = createShipIcon(posReport.Cog, shipColor, isMoving);
 
                 // Zeit seit letztem Update
                 const timeSinceUpdate = getTimeSinceUpdate(metaData.time_utc);
