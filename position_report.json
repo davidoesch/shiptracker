@@ -1,51 +1,32 @@
 {
   "WeatherData": {
-<<<<<<< HEAD
     "wetterzustand": "Bedeckt",
-    "luftdruck": 1009.2,
-    "windrichtung": 178,
-    "windstaerke": 27.4,
+    "luftdruck": 1009.3,
+    "windrichtung": 179,
+    "windstaerke": 27.7,
     "bewoelkung": 100,
-    "lufttemperatur": 15.4,
+    "lufttemperatur": 15.2,
     "niederschlag": 0.0,
-    "wassertemperatur": 14.9,
-    "wellenhoehe": 0.72
+    "wassertemperatur": 14.1,
+    "wellenhoehe": 0.78
   },
-  "timestamp_utc": "2025-11-04T19:26:00+01:00",
-=======
-    "wetterzustand": "Teilweise bew\u00f6lkt",
-    "luftdruck": 1009.1,
-    "windrichtung": 175,
-    "windstaerke": 22.8,
-    "bewoelkung": 69,
-    "lufttemperatur": 14.9,
-    "niederschlag": 0.0,
-    "wassertemperatur": 13.6,
-    "wellenhoehe": 0.72
-  },
-  "timestamp_utc": "2025-11-04T18:39:00+01:00",
->>>>>>> cb0b5b18b31629de9be5cd5ad4365be1a47549a7
+  "timestamp_utc": "2025-11-04T19:54:00+01:00",
   "PositionReport": {
-    "Cog": 293,
+    "Cog": 305,
     "CommunicationState": 999,
-<<<<<<< HEAD
-    "Latitude": 49.67577,
-    "Longitude": -1.65332,
-=======
-    "Latitude": 49.6384,
-    "Longitude": -1.61949,
->>>>>>> cb0b5b18b31629de9be5cd5ad4365be1a47549a7
+    "Latitude": 49.6997,
+    "Longitude": -1.72441,
     "MessageID": 999,
     "NavigationalStatus": 0,
     "PositionAccuracy": true,
     "Raim": true,
     "RateOfTurn": 999,
     "RepeatIndicator": 999,
-    "Sog": 6.8,
+    "Sog": 8.0,
     "Spare": 999,
     "SpecialManoeuvreIndicator": 999,
     "Timestamp": 999,
-    "TrueHeading": 293,
+    "TrueHeading": 305,
     "UserID": 999,
     "Valid": true
   },
@@ -53,14 +34,8 @@
     "MMSI": "244528000",
     "MMSI_String": "244528000",
     "ShipName": "REGINA MARIS",
-<<<<<<< HEAD
-    "latitude": 49.67577,
-    "longitude": -1.65332,
-    "time_utc": "2025-11-04T19:26:00+01:00"
-=======
-    "latitude": 49.6384,
-    "longitude": -1.61949,
-    "time_utc": "2025-11-04T18:39:00+01:00"
->>>>>>> cb0b5b18b31629de9be5cd5ad4365be1a47549a7
+    "latitude": 49.6997,
+    "longitude": -1.72441,
+    "time_utc": "2025-11-04T19:54:00+01:00"
   }
 }
