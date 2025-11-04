@@ -271,144 +271,98 @@
             }
             return Math.round(totalDistance * 10) / 10; // Auf eine Dezimalstelle runden
         }
+        
+        // --- START: FUNKTIONEN IN GLOBALEN SCOPE VERSCHOBEN ---
 
-        // Funktion zur Karteninitialisierung (nur einmal aufgerufen)
-        async function initializeMap() {
-            try {
-                // Schiffsdaten laden
-                currentShipData = await loadShipData();
-                const posReport = currentShipData.PositionReport;
+        // Funktion zum Anzeigen/Ausblenden der Positionsmarker basierend auf Zoom-Level
+        function updatePositionMarkersVisibility() {
+            if (!map) return; // Sicherstellen, dass die Karte initialisiert ist
+            const currentZoom = map.getZoom();
+            const shouldShow = currentZoom >= 8 && currentZoom <= 22;
 
-                // Loading-Nachricht entfernen
-                document.getElementById('loading').style.display = 'none';
-
-                // Karte initialisieren und auf Schiffsposition zentrieren
-                map = L.map('map', {
-                    zoomControl: urlParams.popupzoom // Zoom-Controls basierend auf URL-Parameter
-                }).setView([posReport.Latitude, posReport.Longitude], urlParams.zoom);
-
-                // Basiskarten definieren
-                // Esri Satellite Imagery
-                esriImagery = L.tileLayer(
-                    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                    attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics',
-                    maxZoom: 19
-                }
-                );
-
-                // Esri Labels overlay (boundaries, roads, places)
-                esriLabels = L.tileLayer(
-                    'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-                    attribution: 'Labels &copy; Esri',
-                    maxZoom: 19
-                }
-                );
-
-                // OpenStreetMap POSITRON
-                osmPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-
-                    subdomains: 'abcd',
-                    maxZoom: 19
-                });
-
-                // Basiskarte basierend auf URL-Parameter setzen
-                currentBasemap = urlParams.map;
-                if (currentBasemap === 'osm') {
-                    osmPositron.addTo(map);
+            positionMarkers.forEach(marker => {
+                if (shouldShow) {
+                    if (!map.hasLayer(marker)) {
+                        marker.addTo(map);
+                    }
                 } else {
-                    esriImagery.addTo(map);
-                    esriLabels.addTo(map);
-                }
-
-
-
-                // Schiffsspuren laden und anzeigen
-                await loadAndDisplayTracks();
-
-                // Schiffspositionen laden und anzeigen
-                await loadAndDisplayPositions();
-
-                // Funktion zum Anzeigen/Ausblenden der Positionsmarker basierend auf Zoom-Level
-                function updatePositionMarkersVisibility() {
-                    const currentZoom = map.getZoom();
-                    const shouldShow = currentZoom >= 8 && currentZoom <= 22;
-
-                    positionMarkers.forEach(marker => {
-                        if (shouldShow) {
-                            if (!map.hasLayer(marker)) {
-                                marker.addTo(map);
-                            }
-                        } else {
-                            if (map.hasLayer(marker)) {
-                                map.removeLayer(marker);
-                            }
-                        }
-                    });
-                }
-
-                // Funktion zum Laden und Anzeigen der Schiffspositionen
-                async function loadAndDisplayPositions() {
-                    try {
-                        positionsData = await loadShipPositions();
-
-                        if (positionsData && positionsData.features) {
-                            positionsData.features.forEach(feature => {
-                                if (feature.geometry && feature.geometry.type === 'Point') {
-                                    const coords = feature.geometry.coordinates;
-                                    const props = feature.properties;
-
-                                    // Roten Kreis-Marker erstellen
-                                    const positionIcon = L.divIcon({
-                                        html: `
-                                            <div style="position: relative;">
-                                                <svg width="12" height="12" style="display: block;">
-                                                    <circle cx="6" cy="6" r="5" fill="red" stroke="white" stroke-width="1"/>
-                                                </svg>
-                                                <div style="position: absolute; left: 14px; top: -4px; white-space: nowrap; font-size: 11px; font-weight: bold; color: red; text-shadow: -1px -1px 0 white, 1px -1px 0 white, -1px 1px 0 white, 1px 1px 0 white;">${props.date}</div>
-                                            </div>
-                                        `,
-                                        className: 'position-marker',
-                                        iconSize: [12, 12],
-                                        iconAnchor: [6, 6]
-                                    });
-
-                                    // Marker erstellen (GeoJSON verwendet [lon, lat], Leaflet verwendet [lat, lon])
-                                    const marker = L.marker([coords[1], coords[0]], {
-                                        icon: positionIcon
-                                    });
-
-                                    positionMarkers.push(marker);
-                                }
-                            });
-
-                            // Initial visibility basierend auf aktuellem Zoom
-                            updatePositionMarkersVisibility();
-
-                            // Event-Listener für Zoom-Änderungen
-                            map.on('zoomend', updatePositionMarkersVisibility);
-                        }
-                    } catch (error) {
-                        console.warn('Schiffspositionen konnten nicht geladen werden:', error);
+                    if (map.hasLayer(marker)) {
+                        map.removeLayer(marker);
                     }
                 }
+            });
+        }
 
-                // Schiffsdaten initial anzeigen
-                updateShipDisplay();
+        // Funktion zum Laden und Anzeigen der Schiffspositionen
+        async function loadAndDisplayPositions() {
+            // --- NEU: Alte Positions-Marker entfernen ---
+            if (positionMarkers.length > 0) {
+                positionMarkers.forEach(marker => {
+                    if (map.hasLayer(marker)) {
+                        map.removeLayer(marker);
+                    }
+                });
+                positionMarkers = []; // Array zurücksetzen
+            }
+            // --- Ende NEU ---
 
+            try {
+                positionsData = await loadShipPositions();
+
+                if (positionsData && positionsData.features) {
+                    positionsData.features.forEach(feature => {
+                        if (feature.geometry && feature.geometry.type === 'Point') {
+                            const coords = feature.geometry.coordinates;
+                            const props = feature.properties;
+
+                            // Roten Kreis-Marker erstellen
+                            const positionIcon = L.divIcon({
+                                html: `
+                                    <div style="position: relative;">
+                                        <svg width="12" height="12" style="display: block;">
+                                            <circle cx="6" cy="6" r="5" fill="red" stroke="white" stroke-width="1"/>
+                                        </svg>
+                                        <div style="position: absolute; left: 14px; top: -4px; white-space: nowrap; font-size: 11px; font-weight: bold; color: red; text-shadow: -1px -1px 0 white, 1px -1px 0 white, -1px 1px 0 white, 1px 1px 0 white;">${props.date}</div>
+                                    </div>
+                                `,
+                                className: 'position-marker',
+                                iconSize: [12, 12],
+                                iconAnchor: [6, 6]
+                            });
+
+                            // Marker erstellen (GeoJSON verwendet [lon, lat], Leaflet verwendet [lat, lon])
+                            const marker = L.marker([coords[1], coords[0]], {
+                                icon: positionIcon
+                            });
+
+                            positionMarkers.push(marker);
+                        }
+                    });
+
+                    // Initial visibility basierend auf aktuellem Zoom
+                    updatePositionMarkersVisibility();
+                }
             } catch (error) {
-                console.error('Fehler beim Initialisieren der Karte:', error);
-                document.getElementById('loading').innerHTML = `
-                    <div class="error-message">
-                        Fehler beim Laden der Schiffsdaten:<br>
-                        ${error.message}<br><br>
-                        Bitte prüfen Sie, ob die Datei 'position_report.json' auf dem Server verfügbar ist.
-                    </div>
-                `;
+                console.warn('Schiffspositionen konnten nicht geladen werden:', error);
             }
         }
 
+        // --- ENDE: FUNKTIONEN IN GLOBALEN SCOPE VERSCHOBEN ---
+
+
         // Funktion zum Laden und Anzeigen der Schiffsspuren
         async function loadAndDisplayTracks() {
+            // --- NEU: Alte Track-Layer entfernen ---
+            if (trackLayers.length > 0) {
+                trackLayers.forEach(layer => {
+                    if (map.hasLayer(layer)) {
+                        map.removeLayer(layer);
+                    }
+                });
+                trackLayers = []; // Array zurücksetzen
+            }
+            // --- Ende NEU ---
+
             try {
                 const tracksData = await loadShipTracks();
 
@@ -458,12 +412,93 @@
             }
         }
 
+
+        // Funktion zur Karteninitialisierung (nur einmal aufgerufen)
+        async function initializeMap() {
+            try {
+                // Schiffsdaten laden
+                currentShipData = await loadShipData();
+                const posReport = currentShipData.PositionReport;
+
+                // Loading-Nachricht entfernen
+                document.getElementById('loading').style.display = 'none';
+
+                // Karte initialisieren und auf Schiffsposition zentrieren
+                map = L.map('map', {
+                    zoomControl: urlParams.popupzoom // Zoom-Controls basierend auf URL-Parameter
+                }).setView([posReport.Latitude, posReport.Longitude], urlParams.zoom);
+
+                // Basiskarten definieren
+                // Esri Satellite Imagery
+                esriImagery = L.tileLayer(
+                    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics',
+                    maxZoom: 19
+                }
+                );
+
+                // Esri Labels overlay (boundaries, roads, places)
+                esriLabels = L.tileLayer(
+                    'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Labels &copy; Esri',
+                    maxZoom: 19
+                }
+                );
+
+                // OpenStreetMap POSITRON
+                osmPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+
+                    subdomains: 'abcd',
+                    maxZoom: 19
+                });
+
+                // Basiskarte basierend auf URL-Parameter setzen
+                currentBasemap = urlParams.map;
+                if (currentBasemap === 'osm') {
+                    osmPositron.addTo(map);
+                } else {
+                    esriImagery.addTo(map);
+                    esriLabels.addTo(map);
+                }
+
+                // Schiffsspuren laden und anzeigen
+                await loadAndDisplayTracks();
+
+                // Schiffspositionen laden und anzeigen
+                await loadAndDisplayPositions();
+
+                // --- NEU: Event-Listener HIER EINMALIG setzen ---
+                // (Die Funktionen selbst sind jetzt global)
+                map.on('zoomend', updatePositionMarkersVisibility);
+
+
+                // Schiffsdaten initial anzeigen
+                updateShipDisplay();
+
+            } catch (error) {
+                console.error('Fehler beim Initialisieren der Karte:', error);
+                document.getElementById('loading').innerHTML = `
+                    <div class="error-message">
+                        Fehler beim Laden der Schiffsdaten:<br>
+                        ${error.message}<br><br>
+                        Bitte prüfen Sie, ob die Datei 'position_report.json' auf dem Server verfügbar ist.
+                    </div>
+                `;
+            }
+        }
+
         // Funktion zum Aktualisieren der Schiffsdaten (lädt neue Daten vom Server)
         async function updateShipData() {
             try {
+                // --- NEU: Auch Tracks und Positionen neu laden ---
+                await loadAndDisplayTracks();
+                await loadAndDisplayPositions();
+                // --- Ende NEU ---
+
                 currentShipData = await loadShipData();
                 updateShipDisplay();
-            } catch (error) {
+            } catch (error)
+                {
                 console.error('Fehler beim Aktualisieren der Schiffsdaten:', error);
                 // Bei Fehlern die letzten bekannten Daten beibehalten
             }
