@@ -200,15 +200,15 @@ def create_ship_position_geojson(csv_file, output_file=None):
     # Clean column names (remove any whitespace)
     df.columns = df.columns.str.strip()
 
-    # Parse timestamps
-    df['timestamp_utc'] = df['timestamp_utc'].apply(parse_timestamp_with_tz)
+    # Parse timestamps - keep as pandas datetime for proper .dt accessor support
+    df['timestamp_utc'] = pd.to_datetime(df['timestamp_utc'].apply(parse_timestamp_with_tz), utc=True)
 
     # Remove any rows with invalid coordinates
     df = df.dropna(subset=['latitude', 'longitude'])
     df = df[(df['latitude'] >= -90) & (df['latitude'] <= 90)]
     df = df[(df['longitude'] >= -180) & (df['longitude'] <= 180)]
 
-    # Extract date (without time) for grouping
+    # Extract date (without time) for grouping - now .dt accessor will work
     df['date'] = df['timestamp_utc'].dt.date
 
     # Group by MMSI and date, get the latest position for each day
