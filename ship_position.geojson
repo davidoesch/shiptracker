@@ -380,23 +380,23 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -5.22078,
-          48.40527
+          -5.24865,
+          48.36154
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "05.11.2025",
-        "timestamp_utc": "2025-11-05T19:06:00+00:00",
-        "cog": 200.0,
-        "sog": 8.1,
-        "navigational_status": 0,
+        "timestamp_utc": "2025-11-05T19:28:09.845884+00:00",
+        "cog": 198.7,
+        "sog": 7.9,
+        "navigational_status": 8,
         "wetterzustand": "Bedeckt",
         "luftdruck": 999.9,
-        "windrichtung": 143.0,
-        "windstaerke": 34.5,
+        "windrichtung": 150.0,
+        "windstaerke": 31.1,
         "bewoelkung": 100.0,
-        "lufttemperatur": 15.4,
+        "lufttemperatur": 15.6,
         "wassertemperatur": 14.4,
         "niederschlag": 0.0,
         "wellenhoehe": 3.62
