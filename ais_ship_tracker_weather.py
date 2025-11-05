@@ -54,17 +54,46 @@ def create_bounding_box_around_position(latitude, longitude, radius_km=200):
 def parse_timestamp_with_tz(timestamp_str):
     """
     Parse timestamp string preserving timezone information.
-    Handles multiple formats including ISO format and custom AIS formats.
+    Handles multiple formats including ISO format and custom AIS formats with nanoseconds.
     """
     try:
-        # Use dateutil parser which handles most formats including timezones
+        # Handle AIS Stream format with nanoseconds: "2025-11-05 13:59:49.876462847 +0000 UTC"
+        # This format has nanoseconds (9 digits) which we need to truncate to microseconds (6 digits)
+        if ' UTC' in timestamp_str and '+' in timestamp_str:
+            # Remove the " UTC" suffix
+            timestamp_str = timestamp_str.replace(' UTC', '')
+            
+            # Split into datetime part and timezone part
+            parts = timestamp_str.rsplit('+', 1)
+            if len(parts) == 2:
+                dt_part = parts[0].strip()
+                tz_part = '+' + parts[1].strip()
+                
+                # Check if there are fractional seconds with more than 6 digits
+                if '.' in dt_part:
+                    date_time, fractional = dt_part.split('.')
+                    # Truncate to 6 digits (microseconds) if longer
+                    if len(fractional) > 6:
+                        fractional = fractional[:6]
+                    dt_part = f"{date_time}.{fractional}"
+                
+                # Reconstruct the timestamp
+                timestamp_str = f"{dt_part}{tz_part}"
+        
+        # Try dateutil parser first
         return date_parser.parse(timestamp_str)
     except:
         try:
+            # Try standard ISO format
             return datetime.fromisoformat(timestamp_str)
         except:
-            print(f"Warning: Could not parse timestamp '{timestamp_str}', using current UTC time")
-            return datetime.now(timezone.utc)
+            try:
+                # Try parsing without timezone and add UTC
+                dt = datetime.strptime(timestamp_str.split('+')[0].strip(), '%Y-%m-%d %H:%M:%S.%f')
+                return dt.replace(tzinfo=timezone.utc)
+            except:
+                print(f"Warning: Could not parse timestamp '{timestamp_str}', using current UTC time")
+                return datetime.now(timezone.utc)
 
 def format_timestamp_with_tz(dt):
     """
