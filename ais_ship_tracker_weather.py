@@ -832,26 +832,12 @@ async def process_and_save_ship_data(
     """
     Process ship position data, check filtering rules, get weather data, and save to CSV.
 
-    Args:
-        timestamp_utc: UTC timestamp string
-        mmsi: Maritime Mobile Service Identity
-        latitude: Latitude coordinate
-        longitude: Longitude coordinate
-        cog: Course over ground
-        sog: Speed over ground
-        true_heading: True heading
-        nav_status: Navigational status
-        latest_entry: Dictionary with latest entry data (sog, navigational_status)
-        latest_entry_time: Datetime of latest entry
-        csv_filename: Path to CSV file
-        ais_message: Optional AIS message dict for JSON output
-        meta_data: Optional metadata dict for JSON output
-
     Returns:
-        Tuple of (should_continue, new_latest_entry_time, new_latest_entry)
+        Tuple of (should_continue, new_latest_entry_time, new_latest_entry, weather_data)
         - should_continue: Boolean indicating if processing was successful
         - new_latest_entry_time: Updated latest entry time
         - new_latest_entry: Updated latest entry dict
+        - weather_data: Weather data dictionary
     """
     print(f"[{timestamp_utc}] MMSI: {mmsi}, Lat: {latitude}, Lon: {longitude}, SOG: {sog}, Nav Status: {nav_status}")
 
@@ -981,7 +967,8 @@ async def process_and_save_ship_data(
     with open("position_report.json", "w") as f:
         json.dump(output, f, indent=2)
 
-    return True, new_latest_entry_time, new_latest_entry
+    # Return weather_data as the 4th element
+    return True, new_latest_entry_time, new_latest_entry, weather_data
 
 async def connect_ais_stream():
     csv_filename = "ais_position_reports.csv"
@@ -1079,7 +1066,7 @@ async def connect_ais_stream():
                         shipname=data['shipname']
                         print("=" * 60)
                         print(f"[{timestamp_utc}] MMSI: {mmsi}, Lat: {latitude}, Lon: {longitude}, SOG: {sog}, Nav Status: {nav_status}")
-                        success, latest_entry_time, latest_entry = await process_and_save_ship_data(
+                        success, latest_entry_time, latest_entry, weather_data = await process_and_save_ship_data(
                             timestamp_utc=timestamp_utc,
                             mmsi=mmsi,
                             latitude=latitude,
@@ -1128,7 +1115,7 @@ async def connect_ais_stream():
                     nav_status = ais_message.get('NavigationalStatus', 15)  # 15 = not defined
 
                     print(f"[{timestamp_utc}] MMSI: {mmsi}, Lat: {latitude}, Lon: {longitude}, SOG: {sog}, Nav Status: {nav_status}")
-                    success, latest_entry_time, latest_entry = await process_and_save_ship_data(
+                    success, latest_entry_time, latest_entry, weather_data = await process_and_save_ship_data(
                         timestamp_utc=timestamp_utc,
                         mmsi=mmsi,
                         latitude=latitude,
