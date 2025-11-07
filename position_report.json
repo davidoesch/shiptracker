@@ -1,12 +1,12 @@
 {
   "WeatherData": {
-    "wetterzustand": "Bedeckt",
-    "luftdruck": 1003.4,
-    "windrichtung": 201,
-    "windstaerke": 51.5,
+    "wetterzustand": "Leichter Spr\u00fchregen",
+    "luftdruck": 1003.1,
+    "windrichtung": 208,
+    "windstaerke": 52.2,
     "bewoelkung": 100,
     "lufttemperatur": 16.0,
-    "niederschlag": 0.0,
+    "niederschlag": 0.1,
     "wassertemperatur": 16.1,
     "wellenhoehe": 3.7
   },
