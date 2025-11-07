@@ -428,6 +428,33 @@
         "niederschlag": 0.0,
         "wellenhoehe": 3.86
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -7.01152,
+          45.82494
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "07.11.2025",
+        "timestamp_utc": "2025-11-07T02:07:00+00:00",
+        "cog": 173.0,
+        "sog": 4.0,
+        "navigational_status": 0,
+        "wetterzustand": "M\u00e4\u00dfiger Spr\u00fchregen",
+        "luftdruck": 1005.0,
+        "windrichtung": 205.0,
+        "windstaerke": 45.0,
+        "bewoelkung": 100.0,
+        "lufttemperatur": 15.8,
+        "wassertemperatur": 16.1,
+        "niederschlag": 0.2,
+        "wellenhoehe": 3.8
+      }
     }
   ]
 }
