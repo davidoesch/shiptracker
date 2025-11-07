@@ -1,14 +1,14 @@
 {
   "WeatherData": {
-    "wetterzustand": "Leichter Regen",
+    "wetterzustand": "M\u00e4\u00dfiger Spr\u00fchregen",
     "luftdruck": 1002.7,
-    "windrichtung": 222,
-    "windstaerke": 42.8,
+    "windrichtung": 224,
+    "windstaerke": 40.3,
     "bewoelkung": 100,
     "lufttemperatur": 16.7,
-    "niederschlag": 0.4,
+    "niederschlag": 0.2,
     "wassertemperatur": 16.1,
-    "wellenhoehe": 3.7
+    "wellenhoehe": 3.66
   },
   "timestamp_utc": "2025-11-07T03:12:00+00:00",
   "PositionReport": {
