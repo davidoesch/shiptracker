@@ -1046,8 +1046,8 @@ async def connect_ais_stream():
         subscribe_message = {
             "APIKey": api_key,
             #"BoundingBoxes": [[[-90, -180], [90, 180]]], # Worldwide
-            #"BoundingBoxes": config.BOUNDING_BOXES, #use config bounding boxes
-            "BoundingBoxes": [bounding_box[0]],
+            "BoundingBoxes": config.BOUNDING_BOXES, #use config bounding boxes
+            #"BoundingBoxes": [bounding_box[0]],
             #"BoundingBoxes": [[[47.8369281981982, -4.40158439920577], [51.440531801801804, 1.1629243992057703]]], # testing
             "FiltersShipMMSI": [config.FILTERS_SHIP_MMSI_ID[0]],
             "FilterMessageTypes": ["PositionReport"]
