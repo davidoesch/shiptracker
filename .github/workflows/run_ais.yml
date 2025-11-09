@@ -28,22 +28,24 @@ jobs:
       with:
         python-version: 3.9
 
-    - name: Install Chrome
+    - name: Install Chromium
       run: |
         sudo apt-get update
-        sudo apt-get install -y google-chrome-stable
+        sudo apt-get install -y chromium-browser
+
+    - name: Install xfvb
+      run: |
+        sudo apt-get install -y xvfb
        
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install selenium
-        pip install webdriver-manager
-        pip install beautifulsoup4
+
     
     - name: Run Python script
       run: |
-        python ais_ship_tracker_weather.py
+        xvfb-run --server-args="-screen 0 1920x1080x24" python ais_ship_tracker_weather.py > scraper.log
       env: # Set the secrets as env var
         AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
       
@@ -54,7 +56,7 @@ jobs:
         push-branch: 'main'
         commit-message: 'Update CSV, JSON, and GEOJSON files'
         force-add: 'true'
-        files: "*.csv *.json *.geojson"
+        files: "*.csv *.json *.geojson *.log"
         name: autoupdate
 
 
