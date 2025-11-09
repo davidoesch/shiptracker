@@ -479,7 +479,7 @@ def _create_single_point_map(lat, lon):
 
     # Set bounds with padding
     x, y = gdf_3857.geometry.iloc[0].x, gdf_3857.geometry.iloc[0].y
-    padding = 2500
+    padding = 1000
     ax.set_xlim(x - padding, x + padding)
     ax.set_ylim(y - padding, y + padding)
     ax.set_aspect('equal', adjustable='datalim')
@@ -518,6 +518,13 @@ def _create_single_point_map(lat, lon):
 
 def _create_geomap_with_track(lats, lons, speeds):
     """Create map with vessel track colored by speed."""
+    import matplotlib.pyplot as plt
+    import geopandas as gpd
+    from shapely.geometry import Point, LineString
+    import contextily as ctx
+    from io import BytesIO
+    from matplotlib_scalebar.scalebar import ScaleBar # Assuming this is available
+
     # Create geometries
     points = [Point(lon, lat) for lon, lat in zip(lons, lats)]
     line = LineString([(lon, lat) for lon, lat in zip(lons, lats)])
@@ -540,8 +547,8 @@ def _create_geomap_with_track(lats, lons, speeds):
     y_center = (ymin + ymax) / 2
 
     # Add padding and adjust for figure aspect ratio
-    x_padded = x_range * 1.3
-    y_padded = y_range * 1.3
+    x_padded = x_range * 1.1  # <--- GEÄNDERT von 1.3 auf 1.1
+    y_padded = y_range * 1.1  # <--- GEÄNDERT von 1.3 auf 1.1
 
     fig_aspect = 3.5 / 2.0  # Width/height
     data_aspect = x_padded / y_padded
@@ -580,7 +587,6 @@ def _create_geomap_with_track(lats, lons, speeds):
                     crs='EPSG:3857', zoom='auto', attribution=False)
 
         # 2. Top Layer: Just the labels (roads, cities, etc.)
-        # This layer has a transparent background, creating the hybrid effect.
         ctx.add_basemap(ax, source=ctx.providers.CartoDB.PositronOnlyLabels,
                     crs='EPSG:3857', zoom='auto', attribution=False)
     except Exception as e:
