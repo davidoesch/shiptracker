@@ -60,10 +60,11 @@ def parse_timestamp_with_tz(timestamp_str):
     """
     Parse timestamp string preserving timezone information.
     Handles multiple formats including ISO format and custom AIS formats with nanoseconds.
+    Truncates to whole seconds (no fractional seconds).
     """
     try:
         # Handle AIS Stream format with nanoseconds: "2025-11-05 13:59:49.876462847 +0000 UTC"
-        # This format has nanoseconds (9 digits) which we need to truncate to microseconds (6 digits)
+        # Remove fractional seconds entirely
         if ' UTC' in timestamp_str and '+' in timestamp_str:
             # Remove the " UTC" suffix
             timestamp_str = timestamp_str.replace(' UTC', '')
@@ -74,31 +75,30 @@ def parse_timestamp_with_tz(timestamp_str):
                 dt_part = parts[0].strip()
                 tz_part = '+' + parts[1].strip()
 
-                # Check if there are fractional seconds with more than 6 digits
+                # Remove fractional seconds completely
                 if '.' in dt_part:
-                    date_time, fractional = dt_part.split('.')
-                    # Truncate to 6 digits (microseconds) if longer
-                    if len(fractional) > 6:
-                        fractional = fractional[:6]
-                    dt_part = f"{date_time}.{fractional}"
+                    dt_part = dt_part.split('.')[0]
 
                 # Reconstruct the timestamp
                 timestamp_str = f"{dt_part}{tz_part}"
 
         # Try dateutil parser first
-        return date_parser.parse(timestamp_str)
+        parsed_dt = date_parser.parse(timestamp_str)
+        # Remove microseconds from the parsed datetime
+        return parsed_dt.replace(microsecond=0)
     except:
         try:
             # Try standard ISO format
-            return datetime.fromisoformat(timestamp_str)
+            parsed_dt = datetime.fromisoformat(timestamp_str)
+            return parsed_dt.replace(microsecond=0)
         except:
             try:
                 # Try parsing without timezone and add UTC
-                dt = datetime.strptime(timestamp_str.split('+')[0].strip(), '%Y-%m-%d %H:%M:%S.%f')
-                return dt.replace(tzinfo=timezone.utc)
+                dt = datetime.strptime(timestamp_str.split('+')[0].strip().split('.')[0], '%Y-%m-%d %H:%M:%S')
+                return dt.replace(tzinfo=timezone.utc, microsecond=0)
             except:
                 print(f"Warning: Could not parse timestamp '{timestamp_str}', using current UTC time")
-                return datetime.now(timezone.utc)
+                return datetime.now(timezone.utc).replace(microsecond=0)
 
 def format_timestamp_with_tz(dt):
     """
@@ -976,7 +976,12 @@ async def process_and_save_ship_data(
         }
 
     if meta_data is not None:
-        output["MetaData"] = meta_data
+        # Create a copy of meta_data and convert time_utc timestamp
+        meta_data_copy = meta_data.copy()
+        if 'time_utc' in meta_data_copy:
+            parsed_time = parse_timestamp_with_tz(meta_data_copy['time_utc'])
+            meta_data_copy['time_utc'] = format_timestamp_with_tz(parsed_time)
+        output["MetaData"] = meta_data_copy
     else:
         # For fallback data - create MetaData structure
         output["MetaData"] = {
@@ -1079,7 +1084,8 @@ async def connect_ais_stream():
                         print("\n" + "=" * 60)
                         print("✓ FALLBACK SUCCESS - Complete Ship Data:")
                         time_utc_from_report = data['timestamp_utc']
-                        timestamp_utc = time_utc_from_report # Use current time as timestamp
+                        parsed_time = parse_timestamp_with_tz(time_utc_from_report)
+                        timestamp_utc = format_timestamp_with_tz(parsed_time)
                         mmsi = config.FILTERS_SHIP_MMSI_ID[0]
                         latitude = data['lat']
                         longitude = data['lon']
@@ -1129,7 +1135,9 @@ async def connect_ais_stream():
                     # Extract position report data
                     # Use the time_utc from MetaData instead of current_time
                     time_utc_from_report = meta_data.get('time_utc', current_time.isoformat())
-                    timestamp_utc = time_utc_from_report
+                    # Parse and reformat the timestamp to standardized format
+                    parsed_time = parse_timestamp_with_tz(time_utc_from_report)
+                    timestamp_utc = format_timestamp_with_tz(parsed_time)
                     mmsi = ais_message.get('UserID', '')
                     latitude = round(ais_message.get('Latitude', 0), 5)
                     longitude = round(ais_message.get('Longitude', 0),5)
@@ -1155,9 +1163,14 @@ async def connect_ais_stream():
                         meta_data=meta_data
                     )
                     # Also save the complete message to JSON for reference and as well the weather data
+                    # Create a copy of meta_data and convert time_utc timestamp
+                    meta_data_copy = meta_data.copy()
+                    if 'time_utc' in meta_data_copy:
+                        parsed_time = parse_timestamp_with_tz(meta_data_copy['time_utc'])
+                        meta_data_copy['time_utc'] = format_timestamp_with_tz(parsed_time)
                     output = {
                         "PositionReport": ais_message,
-                        "MetaData": meta_data,
+                        "MetaData": meta_data_copy,
                         "WeatherData": weather_data,
                         "timestamp_utc": timestamp_utc
                     }
