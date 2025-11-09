@@ -1,11 +1,11 @@
-Latest entry in CSV: 2025-11-09 18:53:13+00:00
+Latest entry in CSV: 2025-11-09 19:26:13+00:00
 Starting AIS stream monitoring for 10 minutes...
 Monitoring MMSI(s): 244528000
 Time threshold: 0.15 hour(s)
-Start time: 2025-11-09 19:25:45.454042+00:00
-[2025-11-09T19:26:13+00:00] MMSI: 244528000, Lat: 43.36711, Lon: -8.38304, SOG: 0, Nav Status: 8
+Start time: 2025-11-09 19:52:44.083155+00:00
+[2025-11-09T19:53:13+00:00] MMSI: 244528000, Lat: 43.36712, Lon: -8.38305, SOG: 0.1, Nav Status: 8
 Retrieving weather data...
-Wetter: Bedeckt, Temp: 14.6°C, Wind: 18.3 km/h
+Wetter: Bedeckt, Temp: 14.8°C, Wind: 19.4 km/h
 Added new entry to CSV: ais_position_reports.csv
 First AIS message received and processed. Stopping stream.
 AIS monitoring completed. Data saved to ais_position_reports.csv
