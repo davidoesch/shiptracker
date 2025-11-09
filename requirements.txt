@@ -5,3 +5,7 @@ reportlab
 matplotlib 
 numpy
 contextily
+selenium 
+undetected-chromedriver
+beautifulsoup4
+webdriver-manager

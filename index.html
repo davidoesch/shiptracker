@@ -224,7 +224,7 @@
             const params = new URLSearchParams(window.location.search);
             return {
                 popupzoom: params.get('popupzoom') !== 'false', // default true
-                zoom: parseInt(params.get('zoom')) || 12, // default 12
+                zoom: parseInt(params.get('zoom')) || 5, // default 5
                 map: params.get('map') || 'satellite' // 'satellite' or 'osm'
             };
         }
@@ -271,7 +271,7 @@
             }
             return Math.round(totalDistance * 10) / 10; // Auf eine Dezimalstelle runden
         }
-        
+
         // --- START: FUNKTIONEN IN GLOBALEN SCOPE VERSCHOBEN ---
 
         // Funktion zum Anzeigen/Ausblenden der Positionsmarker basierend auf Zoom-Level
@@ -497,8 +497,7 @@
 
                 currentShipData = await loadShipData();
                 updateShipDisplay();
-            } catch (error)
-                {
+            } catch (error) {
                 console.error('Fehler beim Aktualisieren der Schiffsdaten:', error);
                 // Bei Fehlern die letzten bekannten Daten beibehalten
             }
