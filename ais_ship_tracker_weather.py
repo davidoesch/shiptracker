@@ -22,6 +22,7 @@ import undetected_chromedriver as uc
 
 
 
+
 import math  # Add to your imports if not already there
 
 
@@ -521,18 +522,25 @@ def handle_cookie_consent(driver, debug=False):
         return False
 
 
+
 def extract_from_javascript(url, debug=False, max_retries=3):
     """
-    Extract coordinates by analyzing the page's JavaScript.
+    Extract coordinates by analyzing the page's JavaScript (Method 1),
+    direct API access (Method 2), or page source parsing (Method 3).
+
     Looks for map initialization code with retry logic.
     """
+    # Assuming 'setup_driver' is defined and returns a Selenium WebDriver instance
     driver = setup_driver(headless=not debug)
+
+    debug = True
 
     try:
         if debug:
             print(f"Loading URL: {url}")
 
         driver.get(url)
+        # Assuming 'handle_cookie_consent' is defined
         handle_cookie_consent(driver, debug)
 
         if debug:
@@ -574,15 +582,17 @@ def extract_from_javascript(url, debug=False, max_retries=3):
             if not map_found:
                 if debug:
                     print("No map container found at all!")
-                return None
+                # Even if no map container, we'll continue to Method 2 and 3,
+                # as they don't strictly require the map DOM element.
+                pass
 
         time.sleep(3)
 
-        # Retry logic for accessing the map object
+        # --- Method 1: JavaScript/Leaflet Object Access (Primary Method) ---
         for attempt in range(max_retries):
             try:
                 if debug:
-                    print(f"Attempt {attempt + 1}/{max_retries} to access map object...")
+                    print(f"Attempt {attempt + 1}/{max_retries} for Method 1 (JS Access)...")
 
                 center = driver.execute_script("""
                     try {
@@ -632,10 +642,10 @@ def extract_from_javascript(url, debug=False, max_retries=3):
 
                 if center and 'lat' in center and 'lng' in center:
                     if debug:
-                        print(f"✓ Found coordinates via method: {center.get('method', 'unknown')}")
+                        print(f"✓ Found coordinates via Method 1 (JS): {center.get('method', 'unknown')}")
                     return {
-                        'lat': center['lat'],
-                        'lon': center['lng']
+                        'lat': float(center['lat']),
+                        'lon': float(center['lng'])
                     }
                 elif center and 'error' in center:
                     if debug:
@@ -658,27 +668,73 @@ def extract_from_javascript(url, debug=False, max_retries=3):
                 if attempt < max_retries - 1:
                     time.sleep(3)
 
+
+        # -------------------------------------------------------------------
+        # --- Method 2: Direct API Navigation (New Fallback) ---
+        # -------------------------------------------------------------------
+        coordinates_from_api = None
         if debug:
-            print("JavaScript methods failed, trying page source parsing...")
+            print("Method 1 (JS) failed. Attempting Method 2: Direct API Navigation (MarineTraffic).")
 
-        page_source = driver.page_source
+        try:
+            # Wait for API call to complete (Crucial for selenium-wire)
+            if debug:
+                print("  Waiting 10s for API calls to complete...")
+            time.sleep(10)
 
-        patterns = [
-            (r'setView\s*\(\s*\[\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\]', 'setView'),
-            (r'"lat"\s*:\s*([-\d.]+)\s*,\s*"lng"\s*:\s*([-\d.]+)', 'lat/lng JSON'),
-            (r'"latitude"\s*:\s*([-\d.]+)\s*,\s*"longitude"\s*:\s*([-\d.]+)', 'latitude/longitude JSON'),
-            (r'center:\s*\[\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\]', 'center array'),
-        ]
+            # 1. Extract the ship ID from the original URL
+            target_ship_id = None
+            id_match = re.search(r'shipid:(\d+)', url)
+            if id_match:
+                target_ship_id = id_match.group(1)
 
-        for pattern, name in patterns:
-            match = re.search(pattern, page_source)
-            if match:
+            if not target_ship_id:
                 if debug:
-                    print(f"Found coordinates via page source pattern: {name}")
-                return {
-                    'lat': float(match.group(1)),
-                    'lon': float(match.group(2))
-                }
+                    print("  Failed to find shipid in URL for Method 2. Skipping API call.")
+            else:
+                api_url = f"https://www.marinetraffic.com/map/getvesseljson/shipid:{target_ship_id}"
+
+                if debug:
+                    print(f"  Attempting to navigate to API URL: {api_url}")
+
+                # 2. Navigate to the API endpoint, leveraging the authenticated session
+                driver.get(api_url)
+
+                # Wait briefly for content to load
+                time.sleep(1)
+
+                # 3. Read the page source (which should be raw JSON)
+                raw_json_data = driver.page_source
+
+                # Clean up the JSON text by removing potential surrounding HTML (e.g., <pre> tags)
+                clean_json_text = re.sub(r'<[^>]*>', '', raw_json_data, flags=re.IGNORECASE).strip()
+
+                if not clean_json_text.startswith('{'):
+                    if debug:
+                        print(f"  Content does not look like raw JSON: {clean_json_text[:50]}...")
+                else:
+                    # 4. Parse the JSON
+                    data = json.loads(clean_json_text)
+
+                    # 5. Extract coordinates
+                    if 'LAT' in data and 'LON' in data:
+                        lat = float(data['LAT'])
+                        lon = float(data['LON'])
+                        if debug:
+                            print(f"✓ COORDINATES EXTRACTED via Method 2: Direct API Navigation: lat={lat}, lon={lon}")
+                        coordinates_from_api = {'lat': lat, 'lon': lon}
+                    else:
+                        if debug:
+                            print("  ✗ JSON found, but 'LAT'/'LON' keys are missing.")
+
+        except Exception as e:
+            if debug:
+                print(f"  Method 2 failed: {e}")
+
+        # Return coordinates if Method 2 was successful
+        if coordinates_from_api:
+            return coordinates_from_api
+
 
         return None
 
