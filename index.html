@@ -278,7 +278,7 @@
         function updatePositionMarkersVisibility() {
             if (!map) return; // Sicherstellen, dass die Karte initialisiert ist
             const currentZoom = map.getZoom();
-            const shouldShow = currentZoom >= 8 && currentZoom <= 22;
+            const shouldShow = currentZoom >= 14 && currentZoom <= 22;
 
             positionMarkers.forEach(marker => {
                 if (shouldShow) {

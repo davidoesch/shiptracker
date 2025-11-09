@@ -10,9 +10,12 @@ import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib_scalebar.scalebar import ScaleBar
 from datetime import datetime
 from io import BytesIO
-from matplotlib_scalebar.scalebar import ScaleBar
+import requests
+import json
+import locale
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import mm
@@ -48,6 +51,33 @@ WEATHER_CELL_WIDTH = 19.2
 # Table column widths in mm
 COLUMN_WIDTHS = [10, 10, 10, 10, 11, 32, 10, 10, 11, 10, 10, 10, 20, 10, 38]
 
+# GeoNames API configuration
+def get_api_key():
+    """
+    Get API key from environment variable (GitHub Actions) or local secrets file
+    """
+    # First, try to get from environment variable (GitHub Actions)
+    api_key = os.getenv('GEONAMES_API_KEY')
+
+    if api_key:
+        return api_key
+
+    # If not found in environment, try to load from local secrets file
+    secrets_file = os.path.join('secrets', 'geonames.json')
+
+    if os.path.exists(secrets_file):
+        try:
+            with open(secrets_file, 'r') as f:
+                secrets = json.load(f)
+                return secrets.get('APIKey')
+        except (json.JSONDecodeError, FileNotFoundError, KeyError) as e:
+            print(f"Error reading secrets file: {e}")
+            return None
+
+    print("API key not found in environment variables or secrets file")
+    return None
+
+GEONAMES_USERNAME = get_api_key()
 
 # ============================================================================
 # NAVIGATION CALCULATIONS
@@ -97,6 +127,134 @@ def get_wind_direction_abbr(degrees):
         return "---"
     index = int((degrees + 11.25) / 22.5) % 16
     return WIND_DIRECTIONS[index]
+
+
+def get_bearing_text(lat1, lon1, lat2, lon2):
+    """Calculate bearing and return direction text (N, NE, SW, etc)."""
+    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+
+    dlon = lon2 - lon1
+    x = math.sin(dlon) * math.cos(lat2)
+    y = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
+
+    bearing = math.degrees(math.atan2(x, y))
+    bearing = (bearing + 360) % 360
+
+    # Convert to direction text
+    index = int((bearing + 11.25) / 22.5) % 16
+    return WIND_DIRECTIONS[index]
+
+
+def get_nearest_location(lat, lon, username=GEONAMES_USERNAME):
+    """
+    Get nearest location using GeoNames API.
+
+    Args:
+        lat: Latitude
+        lon: Longitude
+        username: GeoNames username (register at geonames.org)
+
+    Returns:
+        Dictionary with location info or None if request fails
+    """
+    try:
+        # Use findNearbyPlaceName for cities/towns
+        url = "http://api.geonames.org/findNearbyPlaceNameJSON"
+        params = {
+            'lat': lat,
+            'lng': lon,
+            'username': username,
+            'radius': 300,  # Search radius in km
+            'maxRows': 1,
+            'style': 'FULL'
+        }
+
+        response = requests.get(url, params=params, timeout=5)
+
+        if response.status_code == 200 and response.text != '{"geonames":[]}':  # Check for out of range empty response
+            data = response.json()
+            if 'geonames' in data and len(data['geonames']) > 0:
+                place = data['geonames'][0]
+                return {
+                    'name': place.get('name', 'Unknown'),
+                    'country': place.get('countryCode', ''),
+                    'lat': float(place.get('lat', lat)),
+                    'lon': float(place.get('lng', lon)),
+                    'feature': place.get('fclName', ''),
+                    'distance': float(place.get('distance', 0)),
+                    'adminName1': place.get('adminName1', ''),
+
+                }
+
+        if response.status_code == 200 and response.text == '{"geonames":[]}':  # Check for out of range empty response
+                    # Use findNearbyPlaceName for cities/towns
+            url = "http://api.geonames.org/oceanJSON"
+            params = {
+                'lat': lat,
+                'lng': lon,
+                'username': username,
+                'style': 'FULL'
+            }
+
+            response = requests.get(url, params=params, timeout=5)
+            data = response.json()
+            if 'ocean' in data and len(data['ocean']) > 0:
+                place = data['ocean']
+                return {
+                    'name': place.get('name', 'Unknown'),
+                    'country': '',
+                    'lat': float(lat),
+                    'lon': float(lon),
+                    'feature':  '',
+                    'distance': float(place.get('distance', 0)),
+                    'adminName1': '',
+
+                }
+
+    except Exception as e:
+        print(f"GeoNames API error: {e}")
+
+    return None
+
+
+def format_location_with_distance(lat, lon, username=GEONAMES_USERNAME):
+    """
+    Format location as "15 nm SW of Brest, FR"
+
+    Args:
+        lat: Latitude
+        lon: Longitude
+        username: GeoNames username
+
+    Returns:
+        Formatted string with distance and direction to nearest place
+    """
+    location = get_nearest_location(lat, lon, username)
+
+    if location:
+        # Calculate distance in nautical miles
+        distance = calculate_distance(lat, lon, location['lat'], location['lon'])
+
+        # Get bearing direction
+        bearing = get_bearing_text(location['lat'], location['lon'], lat, lon)
+
+        #Define the core parts of the location
+        location_parts = [
+        location.get('name'),
+        location.get('adminName1'),
+        location.get('country')]
+
+        # filtering out any empty or None values.
+        formatted_location = ", ".join([part for part in location_parts if part])
+
+        # Format output
+        if distance < 0.5:
+            return formatted_location
+        else:
+            return f"{distance:.1f} nm {bearing} of {formatted_location}"
+    else:
+        # Fallback to coordinates only
+        return "-"
 
 
 # ============================================================================
@@ -326,7 +484,7 @@ def _create_single_point_map(lat, lon):
     ax.set_ylim(y - padding, y + padding)
     ax.set_aspect('equal', adjustable='datalim')
 
-    # Add basemap
+        # Add basemap
     try:
         # 1. Base Layer: The high-resolution satellite imagery
         ctx.add_basemap(ax, source=ctx.providers.Esri.WorldImagery,
@@ -347,8 +505,6 @@ def _create_single_point_map(lat, lon):
                 font_properties={"size": 10}
                     )
     ax.add_artist(scalebar)
-
-
     ax.axis('off')
     plt.tight_layout(pad=0)
 
@@ -417,7 +573,7 @@ def _create_geomap_with_track(lats, lons, speeds):
 
         gdf_seg_3857.plot(ax=ax, color=color, linewidth=3, alpha=0.9, zorder=10)
 
-    # Add basemap
+        # Add basemap
     try:
         # 1. Base Layer: The high-resolution satellite imagery
         ctx.add_basemap(ax, source=ctx.providers.Esri.WorldImagery,
@@ -431,11 +587,11 @@ def _create_geomap_with_track(lats, lons, speeds):
         print(f"Could not load map tiles: {e}")
         ax.set_facecolor('#E8F4F8')
     scalebar = ScaleBar(1,  # 1 unit = 1 meter
-                    "m",  # Units are in meters
-                    location="lower left", # You can change this (e.g., 'lower right')
-                    frameon=False,         # No box around the scale bar
-                    color="white",         # Text color
-                    font_properties={"size": 10}
+                "m",  # Units are in meters
+                location="lower left", # You can change this (e.g., 'lower right')
+                frameon=False,         # No box around the scale bar
+                color="white",         # Text color
+                font_properties={"size": 10}
                     )
     ax.add_artist(scalebar)
 
@@ -606,13 +762,16 @@ def get_image_with_aspect(img_buffer, max_width_mm, max_height_mm):
 
 
 def create_day_page(date, day_data, cumulative_log, previous_day_log,
-                    styles, anchor_img, sailing_img):
+                    styles, anchor_img, sailing_img,
+                    last_pos_prev_day={'lat': None, 'lon': None}): # <--- ADDED PARAMETER
     """Create a complete day page with header, charts, and logbook table."""
     elements = []
 
     # Date header
+    # Set locale to German (Switzerland)
+    locale.setlocale(locale.LC_TIME, 'de_CH.UTF-8')
     date_str = date.strftime('%A, %d. %B %Y')
-    header = Paragraph(f"<b>DATUM</b> {date_str}", styles['Heading2'])
+    header = Paragraph(f"{date_str}", styles['Heading2'])
     elements.append(header)
     elements.append(Spacer(1, 2*mm))
 
@@ -629,10 +788,23 @@ def create_day_page(date, day_data, cumulative_log, previous_day_log,
     last_pos = format_position(day_data.iloc[-1]['latitude'],
                               day_data.iloc[-1]['longitude'])
 
-    from_to_text = f"<b>VON</b> {first_pos}<br/><b>NACH</b> {last_pos}"
+    # Get nearest locations with distance
+    first_location = format_location_with_distance(
+        day_data.iloc[0]['latitude'],
+        day_data.iloc[0]['longitude']
+    )
+    last_location = format_location_with_distance(
+        day_data.iloc[-1]['latitude'],
+        day_data.iloc[-1]['longitude']
+    )
+
+    from_to_text = (f"<b>VON</b> {first_pos}<br/>"
+                   f"{first_location}<br/><br/>"
+                   f"<b>NACH</b> {last_pos}<br/>"
+                   f"{last_location}")
     from_to = Paragraph(from_to_text, styles['Normal'])
 
-    # Create header table with charts - use exact data table width
+   # Create header table with charts - use exact data table width
     data_table_width = sum(COLUMN_WIDTHS)
 
     # Single row header: from_to on left, pressure chart, track map on right
@@ -660,28 +832,36 @@ def create_day_page(date, day_data, cumulative_log, previous_day_log,
     ]]
 
     # Add data rows
-    total_distance = 0
-    total_log = 0
+    day_log = 0  # Distance covered during this day only
+
+
+    # Calculate distance from previous day's last position to current day's first position
+    if last_pos_prev_day['lat'] is not None and len(day_data) > 0:
+        dist_offset = calculate_distance(
+            last_pos_prev_day['lat'], last_pos_prev_day['lon'],
+            day_data.iloc[0]['latitude'], day_data.iloc[0]['longitude']
+        )
+        day_log += dist_offset
+
 
     for idx, row in day_data.iterrows():
         row_position = day_data.index.get_loc(idx)
 
+        # Skip distance calculation for the very first point of the day
+        # (The distance from the previous day's last point is already added above)
         if row_position > 0:
             prev_idx = day_data.index[row_position - 1]
             prev = day_data.loc[prev_idx]
             dist = calculate_distance(prev['latitude'], prev['longitude'],
                                     row['latitude'], row['longitude'])
-            total_distance += dist
-        else:
-            dist = 0
+            day_log += dist
+        # The first position of the day's distance is accounted for by dist_offset above.
 
-        total_log += dist
-
-        table_data.append(format_table_row(row, day_data, total_log,
+        table_data.append(format_table_row(row, day_data, day_log,
                                           anchor_img, sailing_img))
 
     # Add summary rows
-    day_log = total_log
+    # day_log now contains the total distance for this day, including the offset
     table_data.append(['', '', '', '', '', '', '', '', '', '', '', '',
                       'Tagessumme', f'{day_log:.1f}', ''])
     table_data.append(['', '', '', '', '', '', '', '', '', '', '', '',
@@ -761,20 +941,29 @@ def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf',
     # Process each day
     cumulative_log = 0
     previous_day_log = 0
+    # Store the last position of the *previous* day for continuity
+    last_pos_prev_day = {'lat': None, 'lon': None}
+
     grouped = df.groupby('date')
 
     for date, day_data in grouped:
         # Sample data to fit on one page
         day_data = sample_hourly_data(day_data, max_entries=19)
 
-        # Create day page
+        # Create day page, passing the last position of the previous day
         day_elements, cumulative_log = create_day_page(
             date, day_data, cumulative_log, previous_day_log,
-            styles, anchor_img, sailing_img
+            styles, anchor_img, sailing_img,
+            last_pos_prev_day=last_pos_prev_day # <--- NEW PARAMETER
         )
 
         story.extend(day_elements)
         previous_day_log = cumulative_log
+
+        # Update last_pos_prev_day with the *current* day's last position
+        last_pos_prev_day['lat'] = day_data.iloc[-1]['latitude']
+        last_pos_prev_day['lon'] = day_data.iloc[-1]['longitude']
+
 
     # Build PDF
     pdf.build(story)
