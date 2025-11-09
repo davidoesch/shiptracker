@@ -12,7 +12,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from datetime import datetime
 from io import BytesIO
-
+from matplotlib_scalebar.scalebar import ScaleBar
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import mm
@@ -328,13 +328,26 @@ def _create_single_point_map(lat, lon):
 
     # Add basemap
     try:
+        # 1. Base Layer: The high-resolution satellite imagery
         ctx.add_basemap(ax, source=ctx.providers.Esri.WorldImagery,
-                       crs='EPSG:3857', alpha=0.9, zoom='auto', attribution=False)
-        ctx.add_basemap(ax, source=ctx.providers.Esri.WorldGrayCanvas,
-                       crs='EPSG:3857', alpha=0.3, zoom='auto', attribution=False)
+                    crs='EPSG:3857', zoom='auto', attribution=False)
+
+        # 2. Top Layer: Just the labels (roads, cities, etc.)
+        # This layer has a transparent background, creating the hybrid effect.
+        ctx.add_basemap(ax, source=ctx.providers.CartoDB.PositronOnlyLabels,
+                    crs='EPSG:3857', zoom='auto', attribution=False)
     except Exception as e:
         print(f"Could not load map tiles: {e}")
         ax.set_facecolor('#E8F4F8')
+    scalebar = ScaleBar(1,  # 1 unit = 1 meter
+                "m",  # Units are in meters
+                location="lower left", # You can change this (e.g., 'lower right')
+                frameon=False,         # No box around the scale bar
+                color="white",         # Text color
+                font_properties={"size": 10}
+                    )
+    ax.add_artist(scalebar)
+
 
     ax.axis('off')
     plt.tight_layout(pad=0)
@@ -406,13 +419,25 @@ def _create_geomap_with_track(lats, lons, speeds):
 
     # Add basemap
     try:
+        # 1. Base Layer: The high-resolution satellite imagery
         ctx.add_basemap(ax, source=ctx.providers.Esri.WorldImagery,
-                       crs='EPSG:3857', alpha=0.9, zoom='auto', attribution=False)
-        ctx.add_basemap(ax, source=ctx.providers.Esri.WorldGrayCanvas,
-                       crs='EPSG:3857', alpha=0.3, zoom='auto', attribution=False)
+                    crs='EPSG:3857', zoom='auto', attribution=False)
+
+        # 2. Top Layer: Just the labels (roads, cities, etc.)
+        # This layer has a transparent background, creating the hybrid effect.
+        ctx.add_basemap(ax, source=ctx.providers.CartoDB.PositronOnlyLabels,
+                    crs='EPSG:3857', zoom='auto', attribution=False)
     except Exception as e:
         print(f"Could not load map tiles: {e}")
         ax.set_facecolor('#E8F4F8')
+    scalebar = ScaleBar(1,  # 1 unit = 1 meter
+                    "m",  # Units are in meters
+                    location="lower left", # You can change this (e.g., 'lower right')
+                    frameon=False,         # No box around the scale bar
+                    color="white",         # Text color
+                    font_properties={"size": 10}
+                    )
+    ax.add_artist(scalebar)
 
     # Add start/end markers
     start = gdf_points_3857[gdf_points_3857['type'] == 'start']
@@ -607,22 +632,21 @@ def create_day_page(date, day_data, cumulative_log, previous_day_log,
     from_to_text = f"<b>VON</b> {first_pos}<br/><b>NACH</b> {last_pos}"
     from_to = Paragraph(from_to_text, styles['Normal'])
 
-    # Create header table with charts
-    chart_table = Table([[pressure_img, track_img]], colWidths=[60*mm, 93*mm])
-    chart_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-    ]))
-
+    # Create header table with charts - use exact data table width
     data_table_width = sum(COLUMN_WIDTHS)
-    chart_table_width = 60 + 93
-    from_to_width = data_table_width - chart_table_width
 
-    header_table = Table([[from_to, chart_table]],
-                        colWidths=[from_to_width*mm, chart_table_width*mm])
+    # Single row header: from_to on left, pressure chart, track map on right
+    header_table = Table(
+        [[from_to, pressure_img, track_img]],
+        colWidths=[(data_table_width - 153)*mm, 60*mm, 93*mm]
+    )
     header_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),    # From/To text left-aligned
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),   # Pressure chart right-aligned
+        ('ALIGN', (2, 0), (2, 0), 'RIGHT'),   # Track map right-aligned
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
     ]))
 
     elements.append(header_table)
