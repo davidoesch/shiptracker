@@ -526,7 +526,7 @@ def handle_cookie_consent(driver, debug=False):
 def extract_from_javascript(url, debug=False, max_retries=3):
     """
     Extract coordinates by analyzing the page's JavaScript (Method 1),
-    direct API access (Method 2), or page source parsing (Method 3).
+    direct API access (Method 2).
 
     Looks for map initialization code with retry logic.
     """
