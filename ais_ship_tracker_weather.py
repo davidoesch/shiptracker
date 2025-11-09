@@ -863,7 +863,7 @@ async def process_and_save_ship_data(
         - new_latest_entry: Updated latest entry dict
         - weather_data: Weather data dictionary
     """
-    print(f"[{timestamp_utc}] MMSI: {mmsi}, Lat: {latitude}, Lon: {longitude}, SOG: {sog}, Nav Status: {nav_status}")
+    #print(f"[{timestamp_utc}] MMSI: {mmsi}, Lat: {latitude}, Lon: {longitude}, SOG: {sog}, Nav Status: {nav_status}")
 
     # Get weather data for the ship's current position
     print("Retrieving weather data...")
