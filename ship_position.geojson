@@ -488,26 +488,26 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -8.38307,
-          43.36713
+          -8.38306,
+          43.36711
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "09.11.2025",
-        "timestamp_utc": "2025-11-09T20:53:13+00:00",
+        "timestamp_utc": "2025-11-09T21:29:13+00:00",
         "cog": 360.0,
-        "sog": 0.2,
+        "sog": 0.1,
         "navigational_status": 8,
         "wetterzustand": "Bedeckt",
-        "luftdruck": 1016.0,
-        "windrichtung": 203.0,
-        "windstaerke": 18.7,
+        "luftdruck": 1016.1,
+        "windrichtung": 202.0,
+        "windstaerke": 17.9,
         "bewoelkung": 100.0,
-        "lufttemperatur": 14.7,
+        "lufttemperatur": 14.6,
         "wassertemperatur": 16.0,
         "niederschlag": 0.0,
-        "wellenhoehe": 2.06
+        "wellenhoehe": 2.12
       }
     }
   ]
