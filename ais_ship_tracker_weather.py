@@ -436,7 +436,7 @@ def setup_driver(headless=True):
     Sets up the Selenium WebDriver using undetected-chromedriver.
     """
     options = uc.ChromeOptions()
-
+    headless = False
     if headless:
         options.add_argument('--headless=new') # Use the new headless mode
 

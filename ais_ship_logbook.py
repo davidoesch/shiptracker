@@ -13,6 +13,8 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.pdfgen import canvas
 from reportlab.graphics.shapes import Drawing, Circle, Line, Polygon, Wedge
 from reportlab.graphics import renderPDF
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.enums import TA_CENTER
 import math
 import matplotlib
 matplotlib.use('Agg')
@@ -261,12 +263,42 @@ def create_pressure_chart(day_data):
     return buf
 
 
+def get_image_with_aspect(img_buffer, max_width_mm, max_height_mm):
+    """Create ReportLab Image with preserved aspect ratio
+
+    Args:
+        img_buffer: BytesIO buffer containing image
+        max_width_mm: Maximum width in mm
+        max_height_mm: Maximum height in mm
+
+    Returns:
+        RLImage object with correct dimensions
+    """
+    from reportlab.lib import utils
+
+    # Get actual image size
+    img = utils.ImageReader(img_buffer)
+    iw, ih = img.getSize()
+    aspect = ih / float(iw)
+
+    # Calculate dimensions to fit within max bounds
+    width_mm = max_width_mm
+    height_mm = width_mm * aspect
+
+    # If height exceeds max, scale by height instead
+    if height_mm > max_height_mm:
+        height_mm = max_height_mm
+        width_mm = height_mm / aspect
+
+    return RLImage(img_buffer, width=width_mm*mm, height=height_mm*mm)
+
+
 def create_track_map(day_data):
-    """Create track map using geopandas and contextily ESRI basemap - faster and undistorted"""
+    """Create track map using geopandas and contextily ESRI basemap - fixed distortion"""
 
     if gpd is None or ctx is None:
         # Fallback to simple plot if libraries not available
-        fig, ax = plt.subplots(figsize=(2.8, 2.0))
+        fig, ax = plt.subplots(figsize=(3.5, 2.0))
         ax.plot(day_data['longitude'], day_data['latitude'], 'r-', linewidth=2)
         ax.set_aspect('equal')
         ax.axis('off')
@@ -280,10 +312,9 @@ def create_track_map(day_data):
     lons = day_data['longitude'].values
     speeds = day_data['sog'].values
 
-    # Handle case with only one point (cannot create LineString)
+    # Handle case with only one point
     if len(lats) < 2:
-        # Create simple point map
-        fig, ax = plt.subplots(figsize=(2.8, 2.0))
+        fig, ax = plt.subplots(figsize=(3.5, 2.0))
 
         # Create single point GeoDataFrame
         point = Point(lons[0], lats[0])
@@ -296,10 +327,9 @@ def create_track_map(day_data):
 
         # Set bounds with padding around single point
         x, y = gdf_point_3857.geometry.iloc[0].x, gdf_point_3857.geometry.iloc[0].y
-        padding = 2500  # 2.5 km padding in Web Mercator units
+        padding = 2500  # 2.5 km padding
         ax.set_xlim(x - padding, x + padding)
         ax.set_ylim(y - padding, y + padding)
-        ax.set_aspect('equal', adjustable='box')
 
         # Add basemap
         try:
@@ -320,7 +350,7 @@ def create_track_map(day_data):
         plt.close()
         return buf
 
-    # Create GeoDataFrame with LineString geometry (requires at least 2 points)
+    # Create GeoDataFrame with LineString geometry
     points = [Point(lon, lat) for lon, lat in zip(lons, lats)]
     line = LineString([(lon, lat) for lon, lat in zip(lons, lats)])
 
@@ -337,8 +367,44 @@ def create_track_map(day_data):
     gdf_line_3857 = gdf_line.to_crs('EPSG:3857')
     gdf_points_3857 = gdf_points.to_crs('EPSG:3857')
 
-    # Create figure
-    fig, ax = plt.subplots(figsize=(2.8, 2.0))
+    # Get bounds in Web Mercator
+    xmin, ymin, xmax, ymax = gdf_line_3857.total_bounds
+
+    # Calculate ranges
+    x_range = max(xmax - xmin, 100)  # minimum 100m
+    y_range = max(ymax - ymin, 100)
+
+    # Calculate centers
+    x_center = (xmin + xmax) / 2
+    y_center = (ymin + ymax) / 2
+
+    # Add 30% padding to both dimensions independently
+    x_padded = x_range * 1.3
+    y_padded = y_range * 1.3
+
+    # Calculate aspect ratio of the figure (width/height)
+    fig_aspect = 3.5 / 2.0  # 1.75
+
+    # Calculate aspect ratio of the data extent
+    data_aspect = x_padded / y_padded
+
+    # Adjust extents to match figure aspect ratio without distortion
+    if data_aspect > fig_aspect:
+        # Data is wider than figure - expand y to match
+        y_padded = x_padded / fig_aspect
+    else:
+        # Data is taller than figure - expand x to match
+        x_padded = y_padded * fig_aspect
+
+    # Create figure with exact aspect ratio
+    fig, ax = plt.subplots(figsize=(3.5, 2.0))
+
+    # Set bounds with corrected aspect ratio
+    ax.set_xlim(x_center - x_padded/2, x_center + x_padded/2)
+    ax.set_ylim(y_center - y_padded/2, y_center + y_padded/2)
+
+    # CRITICAL: Set aspect to 'equal' to prevent distortion
+    ax.set_aspect('equal', adjustable='datalim')
 
     # Plot track with speed-based coloring
     max_speed = max(speeds.max(), 1)
@@ -356,23 +422,6 @@ def create_track_map(day_data):
             color = plt.cm.YlOrRd(0.3 + (speed_ratio - 0.5) * 2 * 0.7)
 
         gdf_segment.plot(ax=ax, color=color, linewidth=3, alpha=0.9, zorder=10)
-
-    # Get bounds and add padding
-    xmin, ymin, xmax, ymax = gdf_line_3857.total_bounds
-
-    # Calculate range and ensure minimum scale
-    x_range = max(xmax - xmin, 100)  # minimum 100m in Web Mercator
-    y_range = max(ymax - ymin, 100)
-
-    # Make square with padding (30% padding like original)
-    max_range = max(x_range, y_range) * 1.3
-    x_center = (xmin + xmax) / 2
-    y_center = (ymin + ymax) / 2
-
-    # Set bounds
-    ax.set_xlim(x_center - max_range/2, x_center + max_range/2)
-    ax.set_ylim(y_center - max_range/2, y_center + max_range/2)
-    ax.set_aspect('equal', adjustable='box')
 
     # Add ESRI basemaps
     try:
@@ -410,16 +459,6 @@ def create_track_map(day_data):
 
 
 
-def create_title_page(c, width, height):
-    """Create the title page"""
-    c.setFont("Helvetica-Bold", 36)
-    c.drawCentredString(width/2, height/2 + 40, "Nautic Horizons")
-    c.setFont("Helvetica", 28)
-    c.drawCentredString(width/2, height/2, "2025/2026")
-    c.setFont("Helvetica-Bold", 24)
-    c.drawCentredString(width/2, height/2 - 50, "Ship Regina Maris")
-    c.showPage()
-
 
 def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf', anchor_img='big-anchor.png', sailing_img='sailing-boat.png'):
     """
@@ -441,7 +480,10 @@ def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf', anchor_img='big-anc
 
     # Read CSV
     df = pd.read_csv(csv_file)
-    df['timestamp_utc'] = pd.to_datetime(df['timestamp_utc'])
+
+    # Convert to datetime and convert to UTC
+    df['timestamp_utc'] = pd.to_datetime(df['timestamp_utc'], utc=True)
+
     df['date'] = df['timestamp_utc'].dt.date
     df['time'] = df['timestamp_utc'].dt.strftime('%H:%M')
 
@@ -451,16 +493,50 @@ def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf', anchor_img='big-anc
     # Create PDF
     page_width, page_height = landscape(A4)
     pdf = SimpleDocTemplate(output_pdf, pagesize=landscape(A4),
-                           leftMargin=10*mm, rightMargin=10*mm,
-                           topMargin=15*mm, bottomMargin=15*mm)
-
-    # Create title page
-    c = canvas.Canvas(output_pdf, pagesize=landscape(A4))
-    create_title_page(c, page_width, page_height)
-    c.save()
+                        leftMargin=10*mm, rightMargin=10*mm,
+                        topMargin=15*mm, bottomMargin=15*mm)
 
     story = []
     styles = getSampleStyleSheet()
+
+    # Add title page to story
+    # Create custom styles matching the canvas version
+    title_style_bold = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Normal'],
+        fontSize=36,
+        leading=44,
+        fontName='Helvetica-Bold',
+        alignment=TA_CENTER
+    )
+
+    title_style_normal = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Normal'],
+        fontSize=28,
+        leading=34,
+        fontName='Helvetica',
+        alignment=TA_CENTER
+    )
+
+    ship_style = ParagraphStyle(
+        'CustomShip',
+        parent=styles['Normal'],
+        fontSize=24,
+        leading=30,
+        fontName='Helvetica-Bold',
+        alignment=TA_CENTER
+    )
+
+    # Add title page content with proper vertical centering
+    story.append(Spacer(1, 80*mm))  # Vertical centering
+    story.append(Paragraph("Nautic Horizons", title_style_bold))
+    story.append(Spacer(1, 10*mm))  # Space between title and year
+    story.append(Paragraph("2025/2026", title_style_normal))
+    story.append(Spacer(1, 15*mm))  # Slightly more space before ship name
+    story.append(Paragraph("Ship Regina Maris", ship_style))
+    story.append(PageBreak())
+
 
     # Group by date
     grouped = df.groupby('date')
@@ -483,8 +559,8 @@ def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf', anchor_img='big-anc
         pressure_chart = create_pressure_chart(day_data)
         track_map = create_track_map(day_data)
 
-        pressure_img = RLImage(pressure_chart, width=68*mm, height=40*mm)
-        track_img = RLImage(track_map, width=68*mm, height=40*mm)
+        pressure_img = get_image_with_aspect(pressure_chart, 60, 43)
+        track_img = get_image_with_aspect(track_map, 93, 40)
 
         # Header with position info and charts
         first_pos = format_position(day_data.iloc[0]['latitude'], day_data.iloc[0]['longitude'])
@@ -495,16 +571,28 @@ def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf', anchor_img='big-anc
 
         # Create header layout: text on left, charts on right side by side
         chart_data = [[pressure_img, track_img]]
-        chart_table = Table(chart_data, colWidths=[70*mm, 70*mm])
+        chart_table = Table(chart_data, colWidths=[60*mm, 93*mm])
         chart_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),   # Pressure chart left-aligned in its cell
+            ('ALIGN', (1, 0), (1, 0), 'LEFT'),   # Track map left-aligned in its cell
         ]))
 
+        # Create table - adjusted column widths to fit on one page
+        col_widths = [10*mm, 10*mm, 10*mm, 10*mm, 11*mm, 32*mm, 10*mm, 10*mm, 11*mm, 10*mm, 10*mm, 10*mm, 20*mm, 10*mm, 38*mm]
+
+        # Calculate the total width of the main data table
+        data_table_width = sum(col_widths)  # This equals 232mm
+        chart_table_width = 60*mm + 93*mm  # 130mm
+
+        # Adjust header table widths to align right edge
+        from_to_width = data_table_width - chart_table_width
+
         header_data = [[from_to, chart_table]]
-        header_table = Table(header_data, colWidths=[85*mm, 145*mm])
+        header_table = Table(header_data, colWidths=[from_to_width, chart_table_width])
         header_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),  # Align charts to the right
         ]))
 
         story.append(header_table)
@@ -618,8 +706,7 @@ def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf', anchor_img='big-anc
         # Update for next day
         previous_day_log = cumulative_log
 
-        # Create table - adjusted column widths to fit on one page
-        col_widths = [10*mm, 10*mm, 10*mm, 10*mm, 11*mm, 32*mm, 10*mm, 10*mm, 11*mm, 10*mm, 10*mm, 10*mm, 20*mm, 10*mm, 38*mm]
+
 
         table = Table(table_data, colWidths=col_widths, repeatRows=1)
         table.setStyle(TableStyle([
