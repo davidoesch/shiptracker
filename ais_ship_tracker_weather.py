@@ -3,6 +3,7 @@ from unittest import result
 import websockets
 import json
 import csv
+import sys
 import os
 from datetime import datetime, timezone, timedelta
 import pandas as pd
