@@ -1,12 +1,12 @@
-Latest entry in CSV: 2025-11-09 23:52:42+00:00
+Latest entry in CSV: 2025-11-10 02:22:23+00:00
 Starting AIS stream monitoring for 10 minutes...
 Monitoring MMSI(s): 244528000
 Time threshold: 0.15 hour(s)
-Start time: 2025-11-10 02:21:54.523767+00:00
-[2025-11-10T02:22:23+00:00] MMSI: 244528000, Lat: 43.36715, Lon: -8.38307, SOG: 0, Nav Status: 8
+Start time: 2025-11-10 04:06:35.137659+00:00
+[2025-11-10T04:06:52+00:00] MMSI: 244528000, Lat: 43.36713, Lon: -8.38306, SOG: 0, Nav Status: 8
 Retrieving weather data...
-Wetter: Teilweise bewölkt, Temp: 13.4°C, Wind: 8.6 km/h
-Added new entry to CSV: ais_position_reports.csv
+Wetter: Überwiegend klar, Temp: 13.4°C, Wind: 6.8 km/h
+Skipping entry: Current vessel not moving and latest entry was also stopped/anchored
 First AIS message received and processed. Stopping stream.
 AIS monitoring completed. Data saved to ais_position_reports.csv
 GeoJSON saved to ship_tracks.geojson
