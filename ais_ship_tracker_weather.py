@@ -1095,63 +1095,70 @@ async def connect_ais_stream():
     if not api_key:
         print("Error: API key not found. Please set AISSTREAM_API_KEY environment variable or create secrets/aisstream.json")
         return
+    
     # Create bounding box around latest known position
-
     bounding_box = create_bounding_box_around_position(float(latest_entry['latitude']), float(latest_entry['longitude']), radius_km=200)
-    # Connect to AIS WebSocket stream
-    async with websockets.connect("wss://stream.aisstream.io/v0/stream") as websocket:
-        subscribe_message = {
-            "APIKey": api_key,
-            #"BoundingBoxes": [[[-90, -180], [90, 180]]], # Worldwide
-            "BoundingBoxes": config.BOUNDING_BOXES, #use config bounding boxes
-            #"BoundingBoxes": [bounding_box[0]],
-            #"BoundingBoxes": [[[47.8369281981982, -4.40158439920577], [51.440531801801804, 1.1629243992057703]]], # testing
-            "FiltersShipMMSI": [config.FILTERS_SHIP_MMSI_ID[0]],
-            "FilterMessageTypes": ["PositionReport"]
-        }
+    
+    # Try to connect to WebSocket with error handling
+    try:
+        async with websockets.connect("wss://stream.aisstream.io/v0/stream") as websocket:
+            subscribe_message = {
+                "APIKey": api_key,
+                #"BoundingBoxes": [[[-90, -180], [90, 180]]], # Worldwide
+                "BoundingBoxes": config.BOUNDING_BOXES, #use config bounding boxes
+                #"BoundingBoxes": [bounding_box[0]],
+                #"BoundingBoxes": [[[47.8369281981982, -4.40158439920577], [51.440531801801804, 1.1629243992057703]]], # testing
+                "FiltersShipMMSI": [config.FILTERS_SHIP_MMSI_ID[0]],
+                "FilterMessageTypes": ["PositionReport"]
+            }
 
-        subscribe_message_json = json.dumps(subscribe_message)
-        await websocket.send(subscribe_message_json)
+            subscribe_message_json = json.dumps(subscribe_message)
+            await websocket.send(subscribe_message_json)
 
-        start_time = datetime.now(timezone.utc)
-        max_duration = timedelta(minutes=config.MAX_DURATION_MINUTES)
-        found_result = False
+            start_time = datetime.now(timezone.utc)
+            max_duration = timedelta(minutes=config.MAX_DURATION_MINUTES)
+            found_result = False
 
-        print(f"Starting AIS stream monitoring for {config.MAX_DURATION_MINUTES} minutes...")
-        print(f"Monitoring MMSI(s): {config.FILTERS_SHIP_MMSI_ID[0]}")
-        print(f"Time threshold: {config.TIME_THRESHOLD_HOURS} hour(s)")
-        print(f"Start time: {start_time}")
+            print(f"Starting AIS stream monitoring for {config.MAX_DURATION_MINUTES} minutes...")
+            print(f"Monitoring MMSI(s): {config.FILTERS_SHIP_MMSI_ID[0]}")
+            print(f"Time threshold: {config.TIME_THRESHOLD_HOURS} hour(s)")
+            print(f"Start time: {start_time}")
 
+            try:
+                while True:
+                    current_time = datetime.now(timezone.utc)
 
-        try:
-            while True:
-                current_time = datetime.now(timezone.utc)
+                    # Check if max duration has elapsed
+                    if current_time - start_time > max_duration:
+                        print(f"{config.MAX_DURATION_MINUTES} minutes elapsed. Stopping stream.")
+                        # Exit gracefully and trigger fallback
+                        break
+                    
+                    try:
+                        message_json = await asyncio.wait_for(websocket.recv(), timeout=5)
+                    except asyncio.TimeoutError:
+                        continue  # Check time again
 
-                # Check if max duration has elapsed
-                if current_time - start_time > max_duration:
-                    print(f"{config.MAX_DURATION_MINUTES} minutes elapsed. Stopping stream.")
-                    # Exit gracefully
-                    print("Maximum duration reached. Going for fallback solution...")
+                    message = json.loads(message_json)
+                    message_type = message["MessageType"]
 
-                    # Extract all data
-                    data = get_ship_data(config.FILTERS_SHIP_MMSI_ID[1], debug=False)
-
-                    if data:
+                    if message_type == "PositionReport":
                         found_result = True
-                        print("\n" + "=" * 60)
-                        print("✓ FALLBACK SUCCESS - Complete Ship Data:")
-                        time_utc_from_report = data['timestamp_utc']
+                        ais_message = message['Message']['PositionReport']
+                        meta_data = message['MetaData']
+
+                        # Extract position report data
+                        time_utc_from_report = meta_data.get('time_utc', current_time.isoformat())
                         parsed_time = parse_timestamp_with_tz(time_utc_from_report)
                         timestamp_utc = format_timestamp_with_tz(parsed_time)
-                        mmsi = config.FILTERS_SHIP_MMSI_ID[0]
-                        latitude = data['lat']
-                        longitude = data['lon']
-                        cog = data['cog']
-                        sog = data['sog']
-                        true_heading = 511
-                        nav_status = data['nav_status']
-                        shipname=data['shipname']
-                        print("=" * 60)
+                        mmsi = ais_message.get('UserID', '')
+                        latitude = round(ais_message.get('Latitude', 0), 5)
+                        longitude = round(ais_message.get('Longitude', 0),5)
+                        cog = ais_message.get('Cog', 360)
+                        sog = ais_message.get('Sog', 0)
+                        true_heading = ais_message.get('TrueHeading', 511)
+                        nav_status = ais_message.get('NavigationalStatus', 15)
+
                         print(f"[{timestamp_utc}] MMSI: {mmsi}, Lat: {latitude}, Lon: {longitude}, SOG: {sog}, Nav Status: {nav_status}")
                         success, latest_entry_time, latest_entry, weather_data = await process_and_save_ship_data(
                             timestamp_utc=timestamp_utc,
@@ -1165,90 +1172,97 @@ async def connect_ais_stream():
                             latest_entry=latest_entry,
                             latest_entry_time=latest_entry_time,
                             csv_filename=csv_filename,
-                            shipname=shipname
+                            ais_message=ais_message,
+                            meta_data=meta_data
                         )
+                        
+                        # Also save the complete message to JSON
+                        meta_data_copy = meta_data.copy()
+                        if 'time_utc' in meta_data_copy:
+                            parsed_time = parse_timestamp_with_tz(meta_data_copy['time_utc'])
+                            meta_data_copy['time_utc'] = format_timestamp_with_tz(parsed_time)
+                        output = {
+                            "PositionReport": ais_message,
+                            "MetaData": meta_data_copy,
+                            "WeatherData": weather_data,
+                            "timestamp_utc": timestamp_utc
+                        }
 
+                        with open("position_report.json", "w") as f:
+                            json.dump(output, f, indent=2)
 
+                        # Stop after processing the first message for our MMSI
+                        print("First AIS message received and processed. Stopping stream.")
+                        return  # Exit successfully
 
+            except asyncio.TimeoutError:
+                print("WebSocket timeout occurred")
+            except Exception as e:
+                print(f"Error during streaming: {e}")
 
-                    else:
-                        print("\n✗ FAILED - Could not extract ship data")
-                        print("=" * 60)
-                        print("Also fallback solution failed...Exciting gracefully")
-                    return
-                try:
-                    message_json = await asyncio.wait_for(websocket.recv(), timeout=5)
-                except asyncio.TimeoutError:
-                    continue  # Check time again
+            # If we get here, either timeout elapsed or no result found
+            if not found_result:
+                print(f"No AIS messages received for the specified MMSI(s) within {config.MAX_DURATION_MINUTES} minutes.")
+    
+    except websockets.exceptions.InvalidStatus as e:
+        print(f"WebSocket connection failed: {e}")
+        print("Server returned error, proceeding to fallback solution...")
+    except Exception as e:
+        print(f"WebSocket connection error: {e}")
+        print("Connection failed, proceeding to fallback solution...")
+    
+    # FALLBACK SOLUTION - executes if WebSocket fails OR no data received
+    print("=" * 60)
+    print("Executing fallback solution...")
+    print("=" * 60)
+    
+    try:
+        # Extract all data using fallback method
+        data = get_ship_data(config.FILTERS_SHIP_MMSI_ID[1], debug=False)
 
-                message = json.loads(message_json)
-                message_type = message["MessageType"]
-
-                if message_type == "PositionReport":
-                    found_result = True
-                    ais_message = message['Message']['PositionReport']
-                    meta_data = message['MetaData']
-
-                    # Extract position report data
-                    # Use the time_utc from MetaData instead of current_time
-                    time_utc_from_report = meta_data.get('time_utc', current_time.isoformat())
-                    # Parse and reformat the timestamp to standardized format
-                    parsed_time = parse_timestamp_with_tz(time_utc_from_report)
-                    timestamp_utc = format_timestamp_with_tz(parsed_time)
-                    mmsi = ais_message.get('UserID', '')
-                    latitude = round(ais_message.get('Latitude', 0), 5)
-                    longitude = round(ais_message.get('Longitude', 0),5)
-                    cog = ais_message.get('Cog', 360)  # 360 = not available
-                    sog = ais_message.get('Sog', 0)   # Speed over ground (knots * 10)
-                    true_heading = ais_message.get('TrueHeading', 511)  # 511 = not available
-                    nav_status = ais_message.get('NavigationalStatus', 15)  # 15 = not defined
-
-                    print(f"[{timestamp_utc}] MMSI: {mmsi}, Lat: {latitude}, Lon: {longitude}, SOG: {sog}, Nav Status: {nav_status}")
-                    success, latest_entry_time, latest_entry, weather_data = await process_and_save_ship_data(
-                        timestamp_utc=timestamp_utc,
-                        mmsi=mmsi,
-                        latitude=latitude,
-                        longitude=longitude,
-                        cog=cog,
-                        sog=sog,
-                        true_heading=true_heading,
-                        nav_status=nav_status,
-                        latest_entry=latest_entry,
-                        latest_entry_time=latest_entry_time,
-                        csv_filename=csv_filename,
-                        ais_message=ais_message,
-                        meta_data=meta_data
-                    )
-                    # Also save the complete message to JSON for reference and as well the weather data
-                    # Create a copy of meta_data and convert time_utc timestamp
-                    meta_data_copy = meta_data.copy()
-                    if 'time_utc' in meta_data_copy:
-                        parsed_time = parse_timestamp_with_tz(meta_data_copy['time_utc'])
-                        meta_data_copy['time_utc'] = format_timestamp_with_tz(parsed_time)
-                    output = {
-                        "PositionReport": ais_message,
-                        "MetaData": meta_data_copy,
-                        "WeatherData": weather_data,
-                        "timestamp_utc": timestamp_utc
-                    }
-
-                    with open("position_report.json", "w") as f:
-                        json.dump(output, f, indent=2)
-
-                    # Stop after processing the first message for our MMSI
-                    print("First AIS message received and processed. Stopping stream.")
-                    break
-
-        except asyncio.TimeoutError:
-            print("WebSocket timeout occurred")
-        except Exception as e:
-            print(f"Error during streaming: {e}")
-
-        if not found_result:
-            print(f"No AIS messages received for the specified MMSI(s) within {config.MAX_DURATION_MINUTES} minutes.")
-            print("Existing files were not overwritten.")
+        if data:
+            print("\n" + "=" * 60)
+            print("✓ FALLBACK SUCCESS - Complete Ship Data:")
+            time_utc_from_report = data['timestamp_utc']
+            parsed_time = parse_timestamp_with_tz(time_utc_from_report)
+            timestamp_utc = format_timestamp_with_tz(parsed_time)
+            mmsi = config.FILTERS_SHIP_MMSI_ID[0]
+            latitude = data['lat']
+            longitude = data['lon']
+            cog = data['cog']
+            sog = data['sog']
+            true_heading = 511
+            nav_status = data['nav_status']
+            shipname = data['shipname']
+            print("=" * 60)
+            print(f"[{timestamp_utc}] MMSI: {mmsi}, Lat: {latitude}, Lon: {longitude}, SOG: {sog}, Nav Status: {nav_status}")
+            
+            success, latest_entry_time, latest_entry, weather_data = await process_and_save_ship_data(
+                timestamp_utc=timestamp_utc,
+                mmsi=mmsi,
+                latitude=latitude,
+                longitude=longitude,
+                cog=cog,
+                sog=sog,
+                true_heading=true_heading,
+                nav_status=nav_status,
+                latest_entry=latest_entry,
+                latest_entry_time=latest_entry_time,
+                csv_filename=csv_filename,
+                shipname=shipname
+            )
+            
+            print(f"Fallback solution completed. Data saved to {csv_filename}")
         else:
-            print(f"AIS monitoring completed. Data saved to {csv_filename}")
+            print("\n✗ FAILED - Could not extract ship data")
+            print("=" * 60)
+            print("Fallback solution failed. Exiting gracefully.")
+    
+    except Exception as e:
+        print(f"Fallback solution error: {e}")
+        import traceback
+        traceback.print_exc()
+        print("Exiting with error.")
 
 def print_field_meanings():
     """Print the field meanings for reference"""
