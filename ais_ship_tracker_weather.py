@@ -1276,10 +1276,19 @@ def print_field_meanings():
     print("=" * 60)
 
 if __name__ == "__main__":
-    #print_field_meanings()
-    #main asyncio loop
-    asyncio.run(connect_ais_stream())
-    # Generate track GeoJSON (LineString)
-    track_geojson = create_ship_track_geojson('ais_position_reports.csv', 'ship_tracks.geojson')
-    # Genereate position points GeoJSON (Point features)
-    position_geojson = create_ship_position_geojson('ais_position_reports.csv', 'ship_position.geojson')
+    try:
+        #print_field_meanings()
+        #main asyncio loop
+        asyncio.run(connect_ais_stream())
+        # Generate track GeoJSON (LineString)
+        track_geojson = create_ship_track_geojson('ais_position_reports.csv', 'ship_tracks.geojson')
+        # Generate position points GeoJSON (Point features)
+        position_geojson = create_ship_position_geojson('ais_position_reports.csv', 'ship_position.geojson')
+        
+        # Explicit success exit
+        sys.exit(0)
+    except Exception as e:
+        print(f"Error occurred: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
