@@ -45,7 +45,7 @@ jobs:
     
     - name: Run Python script
       run: |
-        xvfb-run --server-args="-screen 0 1920x1080x24" python ais_ship_tracker_weather.py > scraper.log
+        xvfb-run --server-args="-screen 0 1920x1080x24" python ais_ship_tracker_weather.py 
       env: # Set the secrets as env var
         AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
       
