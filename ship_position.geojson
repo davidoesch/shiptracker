@@ -542,16 +542,16 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -8.38306,
-          43.36714
+          -8.38307,
+          43.36713
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "11.11.2025",
-        "timestamp_utc": "2025-11-11T18:45:52+00:00",
+        "timestamp_utc": "2025-11-11T18:59:33+00:00",
         "cog": 360.0,
-        "sog": 0.1,
+        "sog": 0.0,
         "navigational_status": 8,
         "wetterzustand": "Bedeckt",
         "luftdruck": 1001.8,
