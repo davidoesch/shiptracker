@@ -569,22 +569,22 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -8.38303,
+          -8.38305,
           43.36714
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "12.11.2025",
-        "timestamp_utc": "2025-11-12T04:55:32+00:00",
+        "timestamp_utc": "2025-11-12T05:36:52+00:00",
         "cog": 360.0,
-        "sog": 0.1,
+        "sog": 0.0,
         "navigational_status": 8,
         "wetterzustand": "Bedeckt",
-        "luftdruck": 998.5,
+        "luftdruck": 998.2,
         "windrichtung": 151.0,
-        "windstaerke": 16.1,
-        "bewoelkung": 97.0,
+        "windstaerke": 14.8,
+        "bewoelkung": 100.0,
         "lufttemperatur": 15.4,
         "wassertemperatur": 15.9,
         "niederschlag": 0.0,
