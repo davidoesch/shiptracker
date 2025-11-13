@@ -597,25 +597,25 @@
         "type": "Point",
         "coordinates": [
           -8.38307,
-          43.36711
+          43.36714
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "13.11.2025",
-        "timestamp_utc": "2025-11-13T13:04:23+00:00",
+        "timestamp_utc": "2025-11-13T15:54:18+00:00",
         "cog": 360.0,
-        "sog": 0.0,
+        "sog": 0.1,
         "navigational_status": 8,
-        "wetterzustand": "Leichte Regenschauer",
-        "luftdruck": 996.5,
-        "windrichtung": 155.0,
-        "windstaerke": 13.9,
+        "wetterzustand": "Bedeckt",
+        "luftdruck": 995.1,
+        "windrichtung": 153.0,
+        "windstaerke": 10.5,
         "bewoelkung": 100.0,
-        "lufttemperatur": 16.8,
+        "lufttemperatur": 16.4,
         "wassertemperatur": 16.0,
-        "niederschlag": 0.2,
-        "wellenhoehe": 1.12
+        "niederschlag": 0.0,
+        "wellenhoehe": 1.2
       }
     }
   ]
