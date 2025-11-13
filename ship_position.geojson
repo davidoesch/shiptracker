@@ -596,21 +596,21 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -8.38305,
-          43.36713
+          -8.38306,
+          43.36712
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "13.11.2025",
-        "timestamp_utc": "2025-11-13T19:27:28+00:00",
+        "timestamp_utc": "2025-11-13T19:53:17+00:00",
         "cog": 360.0,
-        "sog": 0.1,
+        "sog": 0.0,
         "navigational_status": 8,
         "wetterzustand": "Leichter Regen",
-        "luftdruck": 994.4,
-        "windrichtung": 127.0,
-        "windstaerke": 5.4,
+        "luftdruck": 994.5,
+        "windrichtung": 140.0,
+        "windstaerke": 6.1,
         "bewoelkung": 100.0,
         "lufttemperatur": 15.1,
         "wassertemperatur": 16.0,
