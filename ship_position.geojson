@@ -603,18 +603,18 @@
       "properties": {
         "mmsi": 244528000,
         "date": "13.11.2025",
-        "timestamp_utc": "2025-11-13T10:55:54+00:00",
+        "timestamp_utc": "2025-11-13T11:31:12+00:00",
         "cog": 360.0,
-        "sog": 0.0,
+        "sog": 0.1,
         "navigational_status": 8,
         "wetterzustand": "Leichter Regen",
-        "luftdruck": 998.0,
-        "windrichtung": 153.0,
-        "windstaerke": 9.7,
+        "luftdruck": 997.4,
+        "windrichtung": 156.0,
+        "windstaerke": 11.4,
         "bewoelkung": 100.0,
-        "lufttemperatur": 16.6,
+        "lufttemperatur": 17.0,
         "wassertemperatur": 15.9,
-        "niederschlag": 0.2,
+        "niederschlag": 0.1,
         "wellenhoehe": 1.12
       }
     }
