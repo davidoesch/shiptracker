@@ -623,26 +623,26 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -8.38296,
+          -8.38299,
           43.36719
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "14.11.2025",
-        "timestamp_utc": "2025-11-14T20:53:54+00:00",
+        "timestamp_utc": "2025-11-14T21:31:14+00:00",
         "cog": 360.0,
-        "sog": 0.1,
+        "sog": 0.0,
         "navigational_status": 8,
-        "wetterzustand": "Bedeckt",
-        "luftdruck": 999.2,
-        "windrichtung": 181.0,
-        "windstaerke": 16.9,
-        "bewoelkung": 100.0,
-        "lufttemperatur": 12.9,
+        "wetterzustand": "Teilweise bew\u00f6lkt",
+        "luftdruck": 999.4,
+        "windrichtung": 180.0,
+        "windstaerke": 17.3,
+        "bewoelkung": 91.0,
+        "lufttemperatur": 12.8,
         "wassertemperatur": 16.0,
         "niederschlag": 0.0,
-        "wellenhoehe": 1.28
+        "wellenhoehe": 1.26
       }
     }
   ]
