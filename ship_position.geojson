@@ -623,21 +623,21 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -8.38299,
+          -8.38301,
           43.36722
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "14.11.2025",
-        "timestamp_utc": "2025-11-14T23:31:45+00:00",
+        "timestamp_utc": "2025-11-14T23:53:34+00:00",
         "cog": 360.0,
-        "sog": 0.1,
+        "sog": 0.0,
         "navigational_status": 8,
         "wetterzustand": "Teilweise bew\u00f6lkt",
-        "luftdruck": 999.7,
-        "windrichtung": 171.0,
-        "windstaerke": 16.8,
+        "luftdruck": 999.8,
+        "windrichtung": 169.0,
+        "windstaerke": 16.5,
         "bewoelkung": 40.0,
         "lufttemperatur": 12.2,
         "wassertemperatur": 16.0,
