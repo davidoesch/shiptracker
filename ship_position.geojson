@@ -677,16 +677,16 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -8.53823,
-          43.39986
+          -8.56276,
+          43.39811
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "16.11.2025",
-        "timestamp_utc": "2025-11-16T06:45:58+00:00",
-        "cog": 268.8,
-        "sog": 4.4,
+        "timestamp_utc": "2025-11-16T06:58:19+00:00",
+        "cog": 268.5,
+        "sog": 5.7,
         "navigational_status": 8,
         "wetterzustand": "Bedeckt",
         "luftdruck": 1001.4,
