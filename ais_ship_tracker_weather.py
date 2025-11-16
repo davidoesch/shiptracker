@@ -218,9 +218,12 @@ def create_ship_track_geojson(csv_file, output_file=None):
 
     return geojson
 
+from geopy.distance import geodesic
+
 def create_ship_position_geojson(csv_file, output_file=None):
     """
     Convert AIS position reports CSV to GeoJSON point format with latest position per day.
+    Filters out consecutive days where positions are within 500m, keeping only the oldest position.
 
     Args:
         csv_file (str): Path to the AIS CSV file
@@ -251,10 +254,39 @@ def create_ship_position_geojson(csv_file, output_file=None):
     geojson_features = []
 
     for mmsi, mmsi_data in df.groupby('mmsi'):
+        # Sort by date to process chronologically
+        daily_positions = []
+
         for date, day_data in mmsi_data.groupby('date'):
             # Get the latest entry for this day
             latest_entry = day_data.loc[day_data['timestamp_utc'].idxmax()]
+            daily_positions.append((date, latest_entry))
 
+        # Sort by date
+        daily_positions.sort(key=lambda x: x[0])
+
+        # Filter positions within 500m of previous day
+        filtered_positions = []
+
+        for i, (date, entry) in enumerate(daily_positions):
+            if i == 0:
+                # Always keep the first position
+                filtered_positions.append((date, entry))
+            else:
+                # Check distance from previous kept position
+                prev_date, prev_entry = filtered_positions[-1]
+
+                current_pos = (entry['latitude'], entry['longitude'])
+                prev_pos = (prev_entry['latitude'], prev_entry['longitude'])
+
+                distance_m = geodesic(prev_pos, current_pos).meters
+
+                # Only keep if distance is greater than 500m
+                if distance_m > 500:
+                    filtered_positions.append((date, entry))
+
+        # Create GeoJSON features from filtered positions
+        for date, latest_entry in filtered_positions:
             # Format date as DD.MM.YYYY
             date_formatted = date.strftime('%d.%m.%Y')
 
@@ -1095,10 +1127,10 @@ async def connect_ais_stream():
     if not api_key:
         print("Error: API key not found. Please set AISSTREAM_API_KEY environment variable or create secrets/aisstream.json")
         return
-    
+
     # Create bounding box around latest known position
     bounding_box = create_bounding_box_around_position(float(latest_entry['latitude']), float(latest_entry['longitude']), radius_km=200)
-    
+
     # Try to connect to WebSocket with error handling
     try:
         async with websockets.connect("wss://stream.aisstream.io/v0/stream") as websocket:
@@ -1133,7 +1165,7 @@ async def connect_ais_stream():
                         print(f"{config.MAX_DURATION_MINUTES} minutes elapsed. Stopping stream.")
                         # Exit gracefully and trigger fallback
                         break
-                    
+
                     try:
                         message_json = await asyncio.wait_for(websocket.recv(), timeout=5)
                     except asyncio.TimeoutError:
@@ -1175,7 +1207,7 @@ async def connect_ais_stream():
                             ais_message=ais_message,
                             meta_data=meta_data
                         )
-                        
+
                         # Also save the complete message to JSON
                         meta_data_copy = meta_data.copy()
                         if 'time_utc' in meta_data_copy:
@@ -1203,19 +1235,19 @@ async def connect_ais_stream():
             # If we get here, either timeout elapsed or no result found
             if not found_result:
                 print(f"No AIS messages received for the specified MMSI(s) within {config.MAX_DURATION_MINUTES} minutes.")
-    
+
     except websockets.exceptions.InvalidStatus as e:
         print(f"WebSocket connection failed: {e}")
         print("Server returned error, proceeding to fallback solution...")
     except Exception as e:
         print(f"WebSocket connection error: {e}")
         print("Connection failed, proceeding to fallback solution...")
-    
+
     # FALLBACK SOLUTION - executes if WebSocket fails OR no data received
     print("=" * 60)
     print("Executing fallback solution...")
     print("=" * 60)
-    
+
     try:
         # Extract all data using fallback method
         data = get_ship_data(config.FILTERS_SHIP_MMSI_ID[1], debug=False)
@@ -1236,7 +1268,7 @@ async def connect_ais_stream():
             shipname = data['shipname']
             print("=" * 60)
             print(f"[{timestamp_utc}] MMSI: {mmsi}, Lat: {latitude}, Lon: {longitude}, SOG: {sog}, Nav Status: {nav_status}")
-            
+
             success, latest_entry_time, latest_entry, weather_data = await process_and_save_ship_data(
                 timestamp_utc=timestamp_utc,
                 mmsi=mmsi,
@@ -1251,13 +1283,13 @@ async def connect_ais_stream():
                 csv_filename=csv_filename,
                 shipname=shipname
             )
-            
+
             print(f"Fallback solution completed. Data saved to {csv_filename}")
         else:
             print("\n✗ FAILED - Could not extract ship data")
             print("=" * 60)
             print("Fallback solution failed. Exiting gracefully.")
-    
+
     except Exception as e:
         print(f"Fallback solution error: {e}")
         import traceback
@@ -1299,7 +1331,7 @@ if __name__ == "__main__":
         track_geojson = create_ship_track_geojson('ais_position_reports.csv', 'ship_tracks.geojson')
         # Generate position points GeoJSON (Point features)
         position_geojson = create_ship_position_geojson('ais_position_reports.csv', 'ship_position.geojson')
-        
+
         # Explicit success exit
         sys.exit(0)
     except Exception as e:

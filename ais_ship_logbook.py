@@ -479,7 +479,7 @@ def _create_single_point_map(lat, lon):
 
     # Set bounds with padding
     x, y = gdf_3857.geometry.iloc[0].x, gdf_3857.geometry.iloc[0].y
-    padding = 1000
+    padding = 2500
     ax.set_xlim(x - padding, x + padding)
     ax.set_ylim(y - padding, y + padding)
     ax.set_aspect('equal', adjustable='datalim')
@@ -558,8 +558,33 @@ def _create_geomap_with_track(lats, lons, speeds):
     else:
         x_padded = y_padded * fig_aspect
 
+    # NEU: Dynamische Zoom-Level-Bestimmung
+    # Die maximale Kantenlänge des geplotteten Rechtecks in Metern (EPSG:3857)
+    max_dim_m = max(x_padded, y_padded)
+
+    # Basierend auf der Lookup-Tabelle:
+    if max_dim_m <= 300:
+        dynamic_zoom = 15
+    elif max_dim_m <= 600:
+        dynamic_zoom = 17
+    elif max_dim_m <= 1200:
+        dynamic_zoom = 16
+    elif max_dim_m <= 2400:
+        dynamic_zoom = 15
+    elif max_dim_m <= 4800:
+        dynamic_zoom = 12
+    elif max_dim_m <= 9600:
+        dynamic_zoom = 10
+    elif max_dim_m <= 19200:
+        dynamic_zoom = 8
+    elif max_dim_m <= 38400:
+        dynamic_zoom = 6
+    else:
+        dynamic_zoom = 4 # Für sehr lange Tracks
+
     # Create figure
     fig, ax = plt.subplots(figsize=(3.5, 2.0))
+
     ax.set_xlim(x_center - x_padded/2, x_center + x_padded/2)
     ax.set_ylim(y_center - y_padded/2, y_center + y_padded/2)
     ax.set_aspect('equal', adjustable='datalim')
@@ -584,11 +609,11 @@ def _create_geomap_with_track(lats, lons, speeds):
     try:
         # 1. Base Layer: The high-resolution satellite imagery
         ctx.add_basemap(ax, source=ctx.providers.Esri.WorldImagery,
-                    crs='EPSG:3857', zoom='auto', attribution=False)
+                    crs='EPSG:3857', zoom="auto", attribution=False)
 
         # 2. Top Layer: Just the labels (roads, cities, etc.)
         ctx.add_basemap(ax, source=ctx.providers.CartoDB.PositronOnlyLabels,
-                    crs='EPSG:3857', zoom='auto', attribution=False)
+                    crs='EPSG:3857', zoom=dynamic_zoom, attribution=False)
     except Exception as e:
         print(f"Could not load map tiles: {e}")
         ax.set_facecolor('#E8F4F8')
