@@ -11,3 +11,4 @@ undetected-chromedriver
 beautifulsoup4
 webdriver-manager
 PyPDF2
+geopandas

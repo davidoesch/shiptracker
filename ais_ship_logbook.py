@@ -36,14 +36,6 @@ import os
 from PyPDF2 import PdfReader, PdfWriter
 import re
 
-try:
-    import geopandas as gpd
-    from shapely.geometry import Point, LineString
-    import contextily as ctx
-    HAS_GEO = True
-except ImportError:
-    print("Warning: geopandas/contextily not installed. Maps will be simplified.")
-    HAS_GEO = False
 
 try:
     from config import VESSEL_INFO, LOGBOOK_SETTINGS
