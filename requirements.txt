@@ -2,7 +2,8 @@ websockets
 pandas
 aiohttp
 reportlab 
-matplotlib 
+matplotlib
+matplotlib_scalebar 
 numpy
 contextily
 selenium 
