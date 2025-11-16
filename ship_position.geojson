@@ -355,22 +355,22 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -9.70233,
-          42.16051
+          -9.73645,
+          42.09695
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "16.11.2025",
-        "timestamp_utc": "2025-11-16T23:02:00+00:00",
-        "cog": 201.0,
-        "sog": 6.3,
+        "timestamp_utc": "2025-11-16T23:39:00+00:00",
+        "cog": 206.0,
+        "sog": 7.0,
         "navigational_status": 0,
-        "wetterzustand": "\u00dcberwiegend klar",
-        "luftdruck": 1010.4,
-        "windrichtung": 6.0,
-        "windstaerke": 29.3,
-        "bewoelkung": 54.0,
+        "wetterzustand": "Teilweise bew\u00f6lkt",
+        "luftdruck": 1010.6,
+        "windrichtung": 2.0,
+        "windstaerke": 29.9,
+        "bewoelkung": 57.0,
         "lufttemperatur": 15.4,
         "wassertemperatur": 16.9,
         "niederschlag": 0.0,
