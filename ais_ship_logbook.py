@@ -582,9 +582,6 @@ def create_track_map(day_data):
     lons = day_data['longitude'].values
     speeds = day_data['sog'].values
 
-    # Fallback to simple plot if geo libraries not available
-    if not HAS_GEO:
-        return _create_simple_track_map(lons, lats)
 
     # Handle single point
     if len(lats) < 2:
@@ -592,21 +589,6 @@ def create_track_map(day_data):
 
     # Create map with track line
     return _create_geomap_with_track(lats, lons, speeds)
-
-
-def _create_simple_track_map(lons, lats):
-    """Simple fallback map without satellite imagery."""
-    fig, ax = plt.subplots(figsize=(3.5, 2.0))
-    ax.plot(lons, lats, 'r-', linewidth=2)
-    ax.set_aspect('equal')
-    ax.axis('off')
-
-    buf = BytesIO()
-    plt.savefig(buf, format='png', dpi=150, bbox_inches='tight', pad_inches=0)
-    buf.seek(0)
-    plt.close()
-
-    return buf
 
 
 
