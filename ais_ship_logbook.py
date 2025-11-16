@@ -11,7 +11,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib_scalebar.scalebar import ScaleBar
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 import requests
 import json
@@ -32,6 +32,9 @@ from io import BytesIO
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.platypus import PageTemplate, Frame, BaseDocTemplate
 from reportlab.pdfgen import canvas
+import os
+from PyPDF2 import PdfReader, PdfWriter
+import re
 
 try:
     import geopandas as gpd
@@ -65,6 +68,8 @@ class NumberedCanvas(canvas.Canvas):
     """Custom canvas to add page numbers and footer."""
 
     def __init__(self, *args, **kwargs):
+        # Extract page_offset if provided
+        self.page_offset = kwargs.pop('page_offset', 0)
         canvas.Canvas.__init__(self, *args, **kwargs)
         self._saved_page_states = []
 
@@ -91,15 +96,14 @@ class NumberedCanvas(canvas.Canvas):
 
         # Set font for footer
         self.setFont('Helvetica', 9)
-        self.setFillColorRGB(0.5, 0.5, 0.5)  # Grey color
+        self.setFillColorRGB(0.5, 0.5, 0.5)
 
         # Get page dimensions (landscape A4)
         page_width = landscape(A4)[0]
-        page_height = landscape(A4)[1]
 
         # Left side: Document title
         vessel_name = f"{VESSEL_INFO.get('prefix', 'M/V')} {VESSEL_INFO.get('name', 'Unknown')}"
-        self.drawString(15*mm, 8*mm, f"{LOGBOOK_SETTINGS.get('title', 'NAUTICAL LOGBOOK')} - {vessel_name}")
+        self.drawString(15*mm, 8*mm, f"{LOGBOOK_SETTINGS.get('title', 'Nautical Logbook')} - {vessel_name}")
 
         # Center: Date/time generated
         from datetime import datetime
@@ -108,8 +112,12 @@ class NumberedCanvas(canvas.Canvas):
         text_width = self.stringWidth(center_text, 'Helvetica', 9)
         self.drawString((page_width - text_width) / 2, 8*mm, center_text)
 
-        # Right side: Page numbers (adjusted page numbering: page_num - 2)
-        page_text = f"Seite {page_num - 2}"
+        # Right side: Page numbers (adjusted with offset)
+        # Apply page_offset to continue numbering from existing PDF
+        adjusted_page_num = page_num - 2 + self.page_offset
+        adjusted_total = page_count - 2 + self.page_offset
+
+        page_text = f"Seite {adjusted_page_num} "
         text_width = self.stringWidth(page_text, 'Helvetica', 9)
         self.drawString(page_width - 15*mm - text_width, 8*mm, page_text)
 
@@ -118,6 +126,13 @@ class NumberedCanvas(canvas.Canvas):
         self.setLineWidth(0.5)
         self.line(15*mm, 12*mm, page_width - 15*mm, 12*mm)
 
+def make_canvas_with_offset(page_offset):
+    """Factory function to create NumberedCanvas with page offset."""
+    class OffsetCanvas(NumberedCanvas):
+        def __init__(self, *args, **kwargs):
+            kwargs['page_offset'] = page_offset
+            super().__init__(*args, **kwargs)
+    return OffsetCanvas
 
 class FooteredDocTemplate(BaseDocTemplate):
     """Custom document template with footer on all pages except first two."""
@@ -1167,7 +1182,7 @@ def create_title_page(styles, df):
     )
 
     elements.append(Paragraph(
-        "Dieses Logbuch wurde automatisch aus AIS-Positionsmeldungen (https://aisstream.io/) und Wetterdaten (https://open-meteo.com/) generiert",
+        "Dieses Logbuch wurde automatisch aus AIS-Positionsmeldungen (https://aisstream.io/) und Wetterdaten (https://open-meteo.com/) generiert. Durch die Nutzung dieser Datenquellen können Abweichungen und Fehler auftreten. Insbesondere AIS-Daten können in Folge fehlender Datenübertragungen unvollständig oder fehlerhaft sein.",
         footer_style
     ))
 
@@ -1361,9 +1376,9 @@ def create_day_page(date, day_data, cumulative_log, previous_day_log,
 
     # Create logbook table
     table_data = [[
-        'Zeit', 'Status', 'Wind\nR.', 'Wind\nKN', 'Wetter', 'Witterung',
-        'mbar', 'T.Luft\n°C', 'T.Wasser\n°C', 'Wellen\nm', 'Regen\nmm',
-        'Kurs', 'Fahrt', 'Log', 'Position'
+        'Zeit\nUTC', 'Status', 'Wind\nR.', 'Wind\nkn', 'Wetter', 'Witterung',
+        'L.Druck\nmbar', 'T.Luft\n°C', 'T.Wasser\n°C', 'Wellen\nm', 'Regen\nmm',
+        'Kurs\n°', 'Fahrt\nkn', 'Log\nsm', 'Position'
     ]]
 
     # Add data rows
@@ -1429,18 +1444,175 @@ def create_day_page(date, day_data, cumulative_log, previous_day_log,
 
     return elements, cumulative_log
 
-
-def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf',
-                         anchor_img='big-anchor.png',
-                         sailing_img='sailing-boat.png'):
+def extract_date_range_from_pdf(pdf_path):
     """
-    Generate nautical logbook PDF from AIS position reports CSV.
+    Extract start and end dates from the title page of existing PDF.
+
+    Returns:
+        tuple: (start_date, end_date) as datetime objects, or (None, None) if not found
+    """
+    try:
+        reader = PdfReader(pdf_path)
+        if len(reader.pages) == 0:
+            return None, None
+
+        # Extract text from first page
+        first_page = reader.pages[0]
+        text = first_page.extract_text()
+
+        # Look for date pattern: "DD Month YYYY — DD Month YYYY"
+        # Example: "17 October 2025 — 20 November 2025"
+        date_pattern = r'(\d{1,2}\s+\w+\s+\d{4})\s*—\s*(\d{1,2}\s+\w+\s+\d{4})'
+        match = re.search(date_pattern, text)
+
+        if match:
+            start_str = match.group(1)
+            end_str = match.group(2)
+
+            # Parse dates
+            start_date = datetime.strptime(start_str, '%d %B %Y')
+            end_date = datetime.strptime(end_str, '%d %B %Y')
+
+            return start_date, end_date
+
+    except Exception as e:
+        print(f"Error extracting dates from PDF: {e}")
+
+    return None, None
+
+
+def needs_update(pdf_path, csv_file):
+    """
+    Check if PDF needs updating based on date range.
+
+    Returns:
+        tuple: (needs_update: bool, missing_start_date: datetime or None, missing_end_date: datetime or None)
+    """
+    if not os.path.exists(pdf_path):
+        return True, None, None  # PDF doesn't exist, needs full generation
+
+    # Extract dates from existing PDF
+    pdf_start, pdf_end = extract_date_range_from_pdf(pdf_path)
+
+    if pdf_start is None or pdf_end is None:
+        print("Could not extract dates from PDF, regenerating completely")
+        return True, None, None
+
+    # Get yesterday's date
+    yesterday = (datetime.now() - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Check if PDF is up to date (end date should be at least yesterday)
+    if pdf_end.date() >= yesterday.date():
+        print(f"PDF is up to date (ends {pdf_end.date()}, yesterday was {yesterday.date()})")
+        return False, None, None
+
+    # PDF needs updating - determine missing date range
+    missing_start = pdf_end + timedelta(days=1)  # Start from day after last PDF date
+
+    # Load CSV to find actual last date in data
+    df = pd.read_csv(csv_file)
+    df['timestamp_utc'] = pd.to_datetime(df['timestamp_utc'], utc=True)
+    csv_end_date = df['timestamp_utc'].max()
+
+    missing_end = csv_end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    print(f"PDF needs update: missing dates from {missing_start.date()} to {missing_end.date()}")
+
+    return True, missing_start, missing_end
+
+
+def generate_pages_for_date_range(csv_file, start_date, end_date,
+                                   styles, anchor_img, sailing_img,
+                                   cumulative_log, previous_day_log,
+                                   last_pos_prev_day):
+    """
+    Generate story elements for a specific date range.
+
+    Returns:
+        tuple: (story_elements, new_cumulative_log, last_position)
+    """
+    # Load and filter data
+    df = pd.read_csv(csv_file)
+    df['timestamp_utc'] = pd.to_datetime(df['timestamp_utc'], utc=True)
+    df['date'] = df['timestamp_utc'].dt.date
+    df['time'] = df['timestamp_utc'].dt.strftime('%H:%M')  # ADD THIS LINE
+    df = df.sort_values('timestamp_utc')
+
+    # Filter for date range
+    df_filtered = df[(df['timestamp_utc'].dt.date >= start_date.date()) &
+                     (df['timestamp_utc'].dt.date <= end_date.date())]
+
+    if len(df_filtered) == 0:
+        print(f"No data found for date range {start_date.date()} to {end_date.date()}")
+        return [], cumulative_log, last_pos_prev_day
+
+    story = []
+    grouped = df_filtered.groupby('date')
+
+    for date, day_data in grouped:
+        day_data = sample_hourly_data(day_data, max_entries=19)
+
+        day_elements, cumulative_log = create_day_page(
+            date, day_data, cumulative_log, previous_day_log,
+            styles, anchor_img, sailing_img,
+            last_pos_prev_day=last_pos_prev_day
+        )
+
+        story.extend(day_elements)
+        previous_day_log = cumulative_log
+
+        # Update last position
+        last_pos_prev_day['lat'] = day_data.iloc[-1]['latitude']
+        last_pos_prev_day['lon'] = day_data.iloc[-1]['longitude']
+
+    return story, cumulative_log, last_pos_prev_day
+
+
+def merge_pdfs(original_pdf, new_pages_pdf, output_pdf):
+    """
+    Merge original PDF (pages 3+) with new title page, track page, and new day pages.
 
     Args:
-        csv_file: Path to CSV file with AIS position data
-        output_pdf: Output PDF filename (default: 'logbook.pdf')
-        anchor_img: Path to anchor icon image
-        sailing_img: Path to sailing boat icon image
+        original_pdf: Path to existing PDF
+        new_pages_pdf: Path to PDF with new pages (title, track, new days)
+        output_pdf: Path for output merged PDF
+    """
+    try:
+        original = PdfReader(original_pdf)
+        new_pages = PdfReader(new_pages_pdf)
+        writer = PdfWriter()
+
+        # Add new title page (page 0 from new_pages)
+        writer.add_page(new_pages.pages[0])
+
+        # Add new track page (page 1 from new_pages)
+        writer.add_page(new_pages.pages[1])
+
+        # Add original pages starting from page 2 (skip old title and track)
+        for page_num in range(2, len(original.pages)):
+            writer.add_page(original.pages[page_num])
+
+        # Add new day pages (pages 2+ from new_pages)
+        for page_num in range(2, len(new_pages.pages)):
+            writer.add_page(new_pages.pages[page_num])
+
+        # Write merged PDF
+        with open(output_pdf, 'wb') as output_file:
+            writer.write(output_file)
+
+        print(f"Successfully merged PDFs: {output_pdf}")
+        return True
+
+    except Exception as e:
+        print(f"Error merging PDFs: {e}")
+        return False
+
+
+def generate_or_update_logbook_pdf(csv_file, output_pdf='logbook.pdf',
+                                    anchor_img='big-anchor.png',
+                                    sailing_img='sailing-boat.png'):
+    """
+    Generate new logbook PDF or update existing one with missing dates.
     """
     # Verify icon files
     if not os.path.exists(anchor_img):
@@ -1450,62 +1622,145 @@ def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf',
         print(f"Warning: {sailing_img} not found. Status icons will be skipped.")
         sailing_img = None
 
-    # Read and prepare data
+    # Check if update is needed
+    needs_update_flag, missing_start, missing_end = needs_update(output_pdf, csv_file)
+
+    if not needs_update_flag:
+        print("PDF is already up to date. No changes needed.")
+        return
+
+    # Read full data
     df = pd.read_csv(csv_file)
     df['timestamp_utc'] = pd.to_datetime(df['timestamp_utc'], utc=True)
     df['date'] = df['timestamp_utc'].dt.date
     df['time'] = df['timestamp_utc'].dt.strftime('%H:%M')
     df = df.sort_values('timestamp_utc')
 
-    # Create PDF document
-    pdf = SimpleDocTemplate(
-        output_pdf,
-        pagesize=landscape(A4),
-        leftMargin=10*mm,
-        rightMargin=10*mm,
-        topMargin=15*mm,
-        bottomMargin=20*mm
-    )
-
-    story = []
     styles = getSampleStyleSheet()
 
-    # Add title page
-    story.extend(create_title_page(styles, df))
+    # If PDF exists and we're updating (not creating new)
+    if os.path.exists(output_pdf) and missing_start is not None:
+        print("Updating existing PDF with new data...")
 
-    # Add ship track page (if GeoJSON available)
-    story.extend(create_ship_track_page('ship_tracks.geojson'))
+        # Calculate cumulative log up to the last day in existing PDF
+        pdf_start, pdf_end = extract_date_range_from_pdf(output_pdf)
+        df_old = df[df['timestamp_utc'].dt.date <= pdf_end.date()]
 
-    # Process each day
-    cumulative_log = 0
-    previous_day_log = 0
-    # Store the last position of the *previous* day for continuity
-    last_pos_prev_day = {'lat': None, 'lon': None}
+        cumulative_log = 0
+        last_pos = {'lat': None, 'lon': None}
 
-    grouped = df.groupby('date')
+        for i in range(1, len(df_old)):
+            dist = calculate_distance(
+                df_old.iloc[i-1]['latitude'], df_old.iloc[i-1]['longitude'],
+                df_old.iloc[i]['latitude'], df_old.iloc[i]['longitude']
+            )
+            cumulative_log += dist
 
-    for date, day_data in grouped:
-        # Sample data to fit on one page
-        day_data = sample_hourly_data(day_data, max_entries=19)
+        if len(df_old) > 0:
+            last_pos['lat'] = df_old.iloc[-1]['latitude']
+            last_pos['lon'] = df_old.iloc[-1]['longitude']
 
-        # Create day page, passing the last position of the previous day
-        day_elements, cumulative_log = create_day_page(
-            date, day_data, cumulative_log, previous_day_log,
-            styles, anchor_img, sailing_img,
-            last_pos_prev_day=last_pos_prev_day # <--- NEW PARAMETER
-        )
-
-        story.extend(day_elements)
         previous_day_log = cumulative_log
 
-        # Update last_pos_prev_day with the *current* day's last position
-        last_pos_prev_day['lat'] = day_data.iloc[-1]['latitude']
-        last_pos_prev_day['lon'] = day_data.iloc[-1]['longitude']
+        # Count existing day pages in original PDF (total pages - 2 for title/track)
+        original_reader = PdfReader(output_pdf)
+        existing_day_pages = len(original_reader.pages) - 2
 
+        # Generate new pages (title, track, and missing days)
+        temp_pdf = output_pdf.replace('.pdf', '_temp.pdf')
 
-    # Build PDF
-    pdf.build(story, canvasmaker=NumberedCanvas)
-    print(f"Logbook PDF generated: {output_pdf}")
+        pdf_temp = FooteredDocTemplate(
+            temp_pdf,
+            pagesize=landscape(A4),
+            leftMargin=10*mm,
+            rightMargin=10*mm,
+            topMargin=15*mm,
+            bottomMargin=20*mm
+        )
+
+        story = []
+
+        # Add new title page with updated dates
+        story.extend(create_title_page(styles, df))
+
+        # Add updated track page
+        if os.path.exists('ship_tracks.geojson'):
+            story.extend(create_ship_track_page('ship_tracks.geojson'))
+
+        # Generate pages for missing date range
+        new_story, cumulative_log, last_pos = generate_pages_for_date_range(
+            csv_file, missing_start, missing_end,
+            styles, anchor_img, sailing_img,
+            cumulative_log, previous_day_log, last_pos
+        )
+
+        story.extend(new_story)
+
+        # Build temp PDF with page offset to continue numbering
+        canvas_maker = make_canvas_with_offset(existing_day_pages)
+        pdf_temp.build(story, canvasmaker=canvas_maker)
+
+        # Merge: new title/track pages + old day pages + new day pages
+        backup_pdf = output_pdf.replace('.pdf', '_backup.pdf')
+        os.rename(output_pdf, backup_pdf)
+
+        if merge_pdfs(backup_pdf, temp_pdf, output_pdf):
+            print(f"Successfully updated: {output_pdf}")
+            os.remove(backup_pdf)
+            os.remove(temp_pdf)
+        else:
+            print("Merge failed, restoring backup")
+            os.rename(backup_pdf, output_pdf)
+            if os.path.exists(temp_pdf):
+                os.remove(temp_pdf)
+
+    else:
+        # Generate complete new PDF
+        print("Generating complete new logbook PDF...")
+
+        pdf = FooteredDocTemplate(
+            output_pdf,
+            pagesize=landscape(A4),
+            leftMargin=10*mm,
+            rightMargin=10*mm,
+            topMargin=15*mm,
+            bottomMargin=20*mm
+        )
+
+        story = []
+
+        # Add title page
+        story.extend(create_title_page(styles, df))
+
+        # Add ship track page
+        if os.path.exists('ship_tracks.geojson'):
+            story.extend(create_ship_track_page('ship_tracks.geojson'))
+
+        # Process each day
+        cumulative_log = 0
+        previous_day_log = 0
+        last_pos_prev_day = {'lat': None, 'lon': None}
+
+        grouped = df.groupby('date')
+
+        for date, day_data in grouped:
+            day_data = sample_hourly_data(day_data, max_entries=19)
+
+            day_elements, cumulative_log = create_day_page(
+                date, day_data, cumulative_log, previous_day_log,
+                styles, anchor_img, sailing_img,
+                last_pos_prev_day=last_pos_prev_day
+            )
+
+            story.extend(day_elements)
+            previous_day_log = cumulative_log
+
+            last_pos_prev_day['lat'] = day_data.iloc[-1]['latitude']
+            last_pos_prev_day['lon'] = day_data.iloc[-1]['longitude']
+
+        # Build PDF with page offset 0 (starting from beginning)
+        pdf.build(story, canvasmaker=NumberedCanvas)
+        print(f"Logbook PDF generated: {output_pdf}")
 
 
 # ============================================================================
@@ -1513,4 +1768,4 @@ def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf',
 # ============================================================================
 
 if __name__ == "__main__":
-    generate_logbook_pdf('ais_position_reports.csv', 'nautical_logbook.pdf')
+    generate_or_update_logbook_pdf('ais_position_reports.csv', 'nautical_logbook.pdf')
