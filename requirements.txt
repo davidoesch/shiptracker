@@ -9,3 +9,4 @@ selenium
 undetected-chromedriver
 beautifulsoup4
 webdriver-manager
+PyPDF2
