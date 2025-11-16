@@ -6,12 +6,36 @@
 # REGINA MARIS is: "244528000"
 FILTERS_SHIP_MMSI_ID = ["244528000","268855"]
 
+# Vessel Information
+VESSEL_INFO = {
+    'name': 'Regina Maris',
+    'prefix': 'S/V',  # Motor Vessel, S/Y for Sailing Yacht, etc.
+    'mmsi': FILTERS_SHIP_MMSI_ID[0],  # Will be overridden by data if available
+    'imo': FILTERS_SHIP_MMSI_ID[1],
+    'call_sign': 'unknown',
+    'flag_state': 'Niederlande',
+    'vessel_type': 'Segelschiff',
+    'gross_tonnage': 'tbd',
+    'length': 'tbd',  # meters
+    'beam': 'tbd',  # meters
+    'draft': 'tbd',  # meters
+    'master': 'Captain J. Smith',
+    'owner': 'tbd'
+}
 
-# Blue Star ferry is: "241087000"
-#FILTERS_SHIP_MMSI = ["241087000"]
-
-# Yacht : "241087000"
-#FILTERS_SHIP_MMSI = ["247360450"]
+# Logbook Settings
+LOGBOOK_SETTINGS = {
+    'title': 'NAUTISCHES LOGBUCH',
+    'subtitle': 'Fahrtenbuch',
+    'show_mmsi': True,
+    'show_imo': False,
+    'show_call_sign': False,
+    'show_flag_state': True,
+    'show_vessel_type': True,
+    'show_master': False,
+    'show_gross_tonnage': False,
+    'show_dimensions': False
+}
 
 # Maximum monitoring duration in minutes
 # How long to monitor the AIS stream before stopping
