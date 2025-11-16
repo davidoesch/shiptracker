@@ -24,6 +24,14 @@ from reportlab.lib.enums import TA_CENTER
 from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle,
                                 Paragraph, PageBreak, Spacer, Image as RLImage)
 from reportlab.graphics.shapes import Drawing, Circle, Line, Wedge
+import math
+import numpy as np
+import requests
+from PIL import Image
+from io import BytesIO
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.platypus import PageTemplate, Frame, BaseDocTemplate
+from reportlab.pdfgen import canvas
 
 try:
     import geopandas as gpd
@@ -34,6 +42,101 @@ except ImportError:
     print("Warning: geopandas/contextily not installed. Maps will be simplified.")
     HAS_GEO = False
 
+try:
+    from config import VESSEL_INFO, LOGBOOK_SETTINGS
+    HAS_CONFIG = True
+except ImportError:
+    print("Warning: conf.py not found. Using default vessel information.")
+    HAS_CONFIG = False
+    VESSEL_INFO = {
+        'name': 'Halleluja',
+        'prefix': 'M/V',
+        'flag_state': 'Unknown',
+        'vessel_type': 'Unknown'
+    }
+    LOGBOOK_SETTINGS = {
+        'title': 'NAUTICAL LOGBOOK',
+        'subtitle': 'Voyage Log',
+        'show_flag_state': False,
+        'show_vessel_type': False
+    }
+
+class NumberedCanvas(canvas.Canvas):
+    """Custom canvas to add page numbers and footer."""
+
+    def __init__(self, *args, **kwargs):
+        canvas.Canvas.__init__(self, *args, **kwargs)
+        self._saved_page_states = []
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        """Add page numbers and footers to all pages."""
+        num_pages = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self.draw_page_number_and_footer(num_pages)
+            canvas.Canvas.showPage(self)
+        canvas.Canvas.save(self)
+
+    def draw_page_number_and_footer(self, page_count):
+        """Draw footer with page numbers (skip first 2 pages)."""
+        page_num = self._pageNumber
+
+        # Skip title page (page 1) and track overview page (page 2)
+        if page_num <= 2:
+            return
+
+        # Set font for footer
+        self.setFont('Helvetica', 9)
+        self.setFillColorRGB(0.5, 0.5, 0.5)  # Grey color
+
+        # Get page dimensions (landscape A4)
+        page_width = landscape(A4)[0]
+        page_height = landscape(A4)[1]
+
+        # Left side: Document title
+        vessel_name = f"{VESSEL_INFO.get('prefix', 'M/V')} {VESSEL_INFO.get('name', 'Unknown')}"
+        self.drawString(15*mm, 8*mm, f"{LOGBOOK_SETTINGS.get('title', 'NAUTICAL LOGBOOK')} - {vessel_name}")
+
+        # Center: Date/time generated
+        from datetime import datetime
+        now = datetime.now().strftime('%d.%m.%Y')
+        center_text = f"Erstellt: {now}"
+        text_width = self.stringWidth(center_text, 'Helvetica', 9)
+        self.drawString((page_width - text_width) / 2, 8*mm, center_text)
+
+        # Right side: Page numbers (adjusted page numbering: page_num - 2)
+        page_text = f"Seite {page_num - 2}"
+        text_width = self.stringWidth(page_text, 'Helvetica', 9)
+        self.drawString(page_width - 15*mm - text_width, 8*mm, page_text)
+
+        # Draw a thin line above the footer
+        self.setStrokeColorRGB(0.7, 0.7, 0.7)
+        self.setLineWidth(0.5)
+        self.line(15*mm, 12*mm, page_width - 15*mm, 12*mm)
+
+
+class FooteredDocTemplate(BaseDocTemplate):
+    """Custom document template with footer on all pages except first two."""
+
+    def __init__(self, filename, **kwargs):
+        BaseDocTemplate.__init__(self, filename, **kwargs)
+
+        # Define frame for content (same as SimpleDocTemplate would use)
+        frame = Frame(
+            self.leftMargin,
+            self.bottomMargin,
+            self.width,
+            self.height,
+            id='normal'
+        )
+
+        # Create page templates
+        template = PageTemplate(id='Later', frames=[frame])
+        self.addPageTemplates([template])
 
 # ============================================================================
 # CONSTANTS
@@ -148,6 +251,7 @@ def get_bearing_text(lat1, lon1, lat2, lon2):
 def get_nearest_location(lat, lon, username=GEONAMES_USERNAME):
     """
     Get nearest location using GeoNames API.
+    First tries to find major cities within 10 nm, then falls back to nearest place.
 
     Args:
         lat: Latitude
@@ -158,20 +262,55 @@ def get_nearest_location(lat, lon, username=GEONAMES_USERNAME):
         Dictionary with location info or None if request fails
     """
     try:
-        # Use findNearbyPlaceName for cities/towns
+        # First, search for major cities within 10 nm (~18.5 km)
         url = "http://api.geonames.org/findNearbyPlaceNameJSON"
         params = {
             'lat': lat,
             'lng': lon,
             'username': username,
-            'radius': 300,  # Search radius in km
+            'radius': 20,  # 20 km to cover ~10 nm
+            'maxRows': 10,  # Get multiple results
+            'style': 'FULL',
+            'cities': 'cities15000'  # Only cities with population > 15,000
+        }
+
+        response = requests.get(url, params=params, timeout=5)
+
+        if response.status_code == 200:
+            data = response.json()
+            if 'geonames' in data and len(data['geonames']) > 0:
+                # Sort by population (descending) to get the largest city
+                places = data['geonames']
+                places_with_pop = [p for p in places if p.get('population', 0) > 0]
+
+                if places_with_pop:
+                    # Get the most populous city
+                    largest_city = max(places_with_pop, key=lambda p: p.get('population', 0))
+
+                    return {
+                        'name': largest_city.get('name', 'Unknown'),
+                        'country': largest_city.get('countryCode', ''),
+                        'lat': float(largest_city.get('lat', lat)),
+                        'lon': float(largest_city.get('lng', lon)),
+                        'feature': largest_city.get('fclName', ''),
+                        'distance': float(largest_city.get('distance', 0)),
+                        'adminName1': largest_city.get('adminName1', ''),
+                        'population': largest_city.get('population', 0)
+                    }
+
+        # Fallback: Search for any nearby place (wider radius)
+        params = {
+            'lat': lat,
+            'lng': lon,
+            'username': username,
+            'radius': 300,  # Wider search
             'maxRows': 1,
             'style': 'FULL'
         }
 
         response = requests.get(url, params=params, timeout=5)
 
-        if response.status_code == 200 and response.text != '{"geonames":[]}':  # Check for out of range empty response
+        if response.status_code == 200 and response.text != '{"geonames":[]}':
             data = response.json()
             if 'geonames' in data and len(data['geonames']) > 0:
                 place = data['geonames'][0]
@@ -183,11 +322,10 @@ def get_nearest_location(lat, lon, username=GEONAMES_USERNAME):
                     'feature': place.get('fclName', ''),
                     'distance': float(place.get('distance', 0)),
                     'adminName1': place.get('adminName1', ''),
-
                 }
 
-        if response.status_code == 200 and response.text == '{"geonames":[]}':  # Check for out of range empty response
-                    # Use findNearbyPlaceName for cities/towns
+        # If still no results, try ocean names
+        if response.status_code == 200 and response.text == '{"geonames":[]}':
             url = "http://api.geonames.org/oceanJSON"
             params = {
                 'lat': lat,
@@ -205,10 +343,9 @@ def get_nearest_location(lat, lon, username=GEONAMES_USERNAME):
                     'country': '',
                     'lat': float(lat),
                     'lon': float(lon),
-                    'feature':  '',
+                    'feature': '',
                     'distance': float(place.get('distance', 0)),
                     'adminName1': '',
-
                 }
 
     except Exception as e:
@@ -251,7 +388,7 @@ def format_location_with_distance(lat, lon, username=GEONAMES_USERNAME):
         if distance < 0.5:
             return formatted_location
         else:
-            return f"{distance:.1f} nm {bearing} of {formatted_location}"
+            return f"{distance:.1f} nm {bearing} von {formatted_location}"
     else:
         # Fallback to coordinates only
         return "-"
@@ -465,65 +602,130 @@ def _create_simple_track_map(lons, lats):
     return buf
 
 
-def _create_single_point_map(lat, lon):
-    """Create map for a single position (anchored vessel)."""
-    fig, ax = plt.subplots(figsize=(3.5, 2.0))
 
-    point = Point(lon, lat)
-    gdf = gpd.GeoDataFrame({'geometry': [point]}, crs='EPSG:4326')
-    gdf_3857 = gdf.to_crs('EPSG:3857')
+def _lat_lon_to_tile(lat, lon, zoom):
+    """Convert lat/lon to tile coordinates."""
+    lat_rad = math.radians(lat)
+    n = 2.0 ** zoom
+    xtile = int((lon + 180.0) / 360.0 * n)
+    ytile = int((1.0 - math.asinh(math.tan(lat_rad)) / math.pi) / 2.0 * n)
+    return xtile, ytile
 
-    # Plot point
-    gdf_3857.plot(ax=ax, color='#00AA00', markersize=100,
-                  edgecolor='white', linewidth=2, zorder=15, marker='o')
+def _get_tile_bbox(xtile, ytile, zoom):
+    """Get bounding box of a tile in EPSG:3857."""
+    from pyproj import Transformer
 
-    # Set bounds with padding
-    x, y = gdf_3857.geometry.iloc[0].x, gdf_3857.geometry.iloc[0].y
-    padding = 2500
-    ax.set_xlim(x - padding, x + padding)
-    ax.set_ylim(y - padding, y + padding)
-    ax.set_aspect('equal', adjustable='datalim')
+    n = 2.0 ** zoom
+    lon_min = xtile / n * 360.0 - 180.0
+    lon_max = (xtile + 1) / n * 360.0 - 180.0
 
-        # Add basemap
+    lat_rad_max = math.atan(math.sinh(math.pi * (1 - 2 * ytile / n)))
+    lat_rad_min = math.atan(math.sinh(math.pi * (1 - 2 * (ytile + 1) / n)))
+    lat_min = math.degrees(lat_rad_min)
+    lat_max = math.degrees(lat_rad_max)
+
+    transformer = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
+    xmin, ymin = transformer.transform(lon_min, lat_min)
+    xmax, ymax = transformer.transform(lon_max, lat_max)
+
+    return xmin, ymin, xmax, ymax
+
+def _fetch_and_composite_tiles(xmin, ymin, xmax, ymax, zoom):
+    """Fetch Esri tiles for the bounding box and composite them."""
+    from pyproj import Transformer
+
+    transformer = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
+    lon_min, lat_min = transformer.transform(xmin, ymin)
+    lon_max, lat_max = transformer.transform(xmax, ymax)
+
+    # Get tile range
+    xtile_min, ytile_max = _lat_lon_to_tile(lat_min, lon_min, zoom)
+    xtile_max, ytile_min = _lat_lon_to_tile(lat_max, lon_max, zoom)
+
+    imagery_tiles = []
+    label_tiles = []
+
+    for ytile in range(ytile_min, ytile_max + 1):
+        row_imagery = []
+        row_labels = []
+        for xtile in range(xtile_min, xtile_max + 1):
+            # Esri World Imagery
+            imagery_url = f'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{zoom}/{ytile}/{xtile}'
+            # Esri Labels
+            label_url = f'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{zoom}/{ytile}/{xtile}'
+
+            try:
+                img_response = requests.get(imagery_url, timeout=5)
+                img = Image.open(BytesIO(img_response.content))
+                row_imagery.append(np.array(img))
+
+                label_response = requests.get(label_url, timeout=5)
+                label_img = Image.open(BytesIO(label_response.content))
+                row_labels.append(np.array(label_img))
+            except Exception as e:
+                print(f"Failed to fetch tile {xtile},{ytile}: {e}")
+                row_imagery.append(np.zeros((256, 256, 3), dtype=np.uint8))
+                row_labels.append(np.zeros((256, 256, 4), dtype=np.uint8))
+
+        if row_imagery:
+            imagery_tiles.append(np.concatenate(row_imagery, axis=1))
+            label_tiles.append(np.concatenate(row_labels, axis=1))
+
+    if imagery_tiles:
+        composite_imagery = np.concatenate(imagery_tiles, axis=0)
+        composite_labels = np.concatenate(label_tiles, axis=0)
+
+        # Get extent of the composite image
+        tile_xmin, tile_ymin, _, _ = _get_tile_bbox(xtile_min, ytile_max, zoom)
+        _, _, tile_xmax, tile_ymax = _get_tile_bbox(xtile_max, ytile_min, zoom)
+
+        return composite_imagery, composite_labels, (tile_xmin, tile_xmax, tile_ymin, tile_ymax)
+
+    return None, None, None
+
+def _calculate_zoom_level(dimension_meters):
+    """Calculate optimal zoom level based on dimension in meters."""
+    return max(1, min(19, round(20 - math.log2(dimension_meters / 100))))
+
+def _add_basemap_to_axis(ax, bounds, zoom):
+    """Add Esri satellite imagery and labels to the axis.
+
+    Args:
+        ax: Matplotlib axis
+        bounds: Tuple of (xmin, xmax, ymin, ymax) in EPSG:3857
+        zoom: Zoom level for tiles
+    """
     try:
-        # 1. Base Layer: The high-resolution satellite imagery
-        ctx.add_basemap(ax, source=ctx.providers.Esri.WorldImagery,
-                    crs='EPSG:3857', zoom='auto', attribution=False)
+        imagery, labels, extent = _fetch_and_composite_tiles(
+            bounds[0], bounds[2], bounds[1], bounds[3], zoom)
 
-        # 2. Top Layer: Just the labels (roads, cities, etc.)
-        # This layer has a transparent background, creating the hybrid effect.
-        ctx.add_basemap(ax, source=ctx.providers.CartoDB.PositronOnlyLabels,
-                    crs='EPSG:3857', zoom='auto', attribution=False)
+        if imagery is not None:
+            ax.imshow(imagery, extent=extent, zorder=1, interpolation='bilinear')
+            ax.imshow(labels, extent=extent, zorder=2, interpolation='bilinear', alpha=1.0)
     except Exception as e:
         print(f"Could not load map tiles: {e}")
         ax.set_facecolor('#E8F4F8')
-    scalebar = ScaleBar(1,  # 1 unit = 1 meter
-                "m",  # Units are in meters
-                location="lower left", # You can change this (e.g., 'lower right')
-                frameon=False,         # No box around the scale bar
-                color="white",         # Text color
-                font_properties={"size": 10}
-                    )
+
+def _add_scalebar(ax):
+    """Add a scalebar to the axis."""
+    from matplotlib_scalebar.scalebar import ScaleBar
+
+    scalebar = ScaleBar(
+        1,  # 1 unit = 1 meter
+        "m",
+        location="lower left",
+        frameon=False,
+        color="white",
+        font_properties={"size": 10}
+    )
     ax.add_artist(scalebar)
-    ax.axis('off')
-    plt.tight_layout(pad=0)
-
-    buf = BytesIO()
-    plt.savefig(buf, format='png', dpi=150, bbox_inches='tight', pad_inches=0)
-    buf.seek(0)
-    plt.close()
-
-    return buf
-
 
 def _create_geomap_with_track(lats, lons, speeds):
     """Create map with vessel track colored by speed."""
     import matplotlib.pyplot as plt
     import geopandas as gpd
     from shapely.geometry import Point, LineString
-    import contextily as ctx
     from io import BytesIO
-    from matplotlib_scalebar.scalebar import ScaleBar # Assuming this is available
 
     # Create geometries
     points = [Point(lon, lat) for lon, lat in zip(lons, lats)]
@@ -547,10 +749,10 @@ def _create_geomap_with_track(lats, lons, speeds):
     y_center = (ymin + ymax) / 2
 
     # Add padding and adjust for figure aspect ratio
-    x_padded = x_range * 1.1  # <--- GEÄNDERT von 1.3 auf 1.1
-    y_padded = y_range * 1.1  # <--- GEÄNDERT von 1.3 auf 1.1
+    x_padded = x_range * 1.1
+    y_padded = y_range * 1.1
 
-    fig_aspect = 3.5 / 2.0  # Width/height
+    fig_aspect = 3.5 / 2.0
     data_aspect = x_padded / y_padded
 
     if data_aspect > fig_aspect:
@@ -558,36 +760,23 @@ def _create_geomap_with_track(lats, lons, speeds):
     else:
         x_padded = y_padded * fig_aspect
 
-    # NEU: Dynamische Zoom-Level-Bestimmung
-    # Die maximale Kantenlänge des geplotteten Rechtecks in Metern (EPSG:3857)
+    # Calculate zoom level
     max_dim_m = max(x_padded, y_padded)
-
-    # Basierend auf der Lookup-Tabelle:
-    if max_dim_m <= 300:
-        dynamic_zoom = 15
-    elif max_dim_m <= 600:
-        dynamic_zoom = 17
-    elif max_dim_m <= 1200:
-        dynamic_zoom = 16
-    elif max_dim_m <= 2400:
-        dynamic_zoom = 15
-    elif max_dim_m <= 4800:
-        dynamic_zoom = 12
-    elif max_dim_m <= 9600:
-        dynamic_zoom = 10
-    elif max_dim_m <= 19200:
-        dynamic_zoom = 8
-    elif max_dim_m <= 38400:
-        dynamic_zoom = 6
-    else:
-        dynamic_zoom = 4 # Für sehr lange Tracks
+    zoom = _calculate_zoom_level(max_dim_m)
+    print(f"Track map - Using zoom level: {zoom} for dimension: {max_dim_m:.0f}m")
 
     # Create figure
     fig, ax = plt.subplots(figsize=(3.5, 2.0))
 
-    ax.set_xlim(x_center - x_padded/2, x_center + x_padded/2)
-    ax.set_ylim(y_center - y_padded/2, y_center + y_padded/2)
+    bounds = (x_center - x_padded/2, x_center + x_padded/2,
+              y_center - y_padded/2, y_center + y_padded/2)
+
+    ax.set_xlim(bounds[0], bounds[1])
+    ax.set_ylim(bounds[2], bounds[3])
     ax.set_aspect('equal', adjustable='datalim')
+
+    # Add basemap
+    _add_basemap_to_axis(ax, bounds, zoom)
 
     # Plot track segments with speed-based coloring
     max_speed = max(speeds.max(), 1)
@@ -596,7 +785,7 @@ def _create_geomap_with_track(lats, lons, speeds):
         gdf_seg = gpd.GeoDataFrame({'geometry': [segment]}, crs='EPSG:4326')
         gdf_seg_3857 = gdf_seg.to_crs('EPSG:3857')
 
-        # Color based on speed (green=slow, yellow=medium, red=fast)
+        # Color based on speed
         speed_ratio = speeds[i] / max_speed
         if speed_ratio < 0.5:
             color = plt.cm.YlOrRd(speed_ratio * 2 * 0.3)
@@ -605,26 +794,8 @@ def _create_geomap_with_track(lats, lons, speeds):
 
         gdf_seg_3857.plot(ax=ax, color=color, linewidth=3, alpha=0.9, zorder=10)
 
-        # Add basemap
-    try:
-        # 1. Base Layer: The high-resolution satellite imagery
-        ctx.add_basemap(ax, source=ctx.providers.Esri.WorldImagery,
-                    crs='EPSG:3857', zoom="auto", attribution=False)
-
-        # 2. Top Layer: Just the labels (roads, cities, etc.)
-        ctx.add_basemap(ax, source=ctx.providers.CartoDB.PositronOnlyLabels,
-                    crs='EPSG:3857', zoom=dynamic_zoom, attribution=False)
-    except Exception as e:
-        print(f"Could not load map tiles: {e}")
-        ax.set_facecolor('#E8F4F8')
-    scalebar = ScaleBar(1,  # 1 unit = 1 meter
-                "m",  # Units are in meters
-                location="lower left", # You can change this (e.g., 'lower right')
-                frameon=False,         # No box around the scale bar
-                color="white",         # Text color
-                font_properties={"size": 10}
-                    )
-    ax.add_artist(scalebar)
+    # Add scalebar
+    _add_scalebar(ax)
 
     # Add start/end markers
     start = gdf_points_3857[gdf_points_3857['type'] == 'start']
@@ -634,6 +805,54 @@ def _create_geomap_with_track(lats, lons, speeds):
               edgecolor='white', linewidth=1.5, zorder=15, marker='o')
     end.plot(ax=ax, color='#CC0000', markersize=80,
             edgecolor='white', linewidth=1.5, zorder=15, marker='^')
+
+    ax.axis('off')
+    plt.tight_layout(pad=0)
+
+    buf = BytesIO()
+    plt.savefig(buf, format='png', dpi=150, bbox_inches='tight', pad_inches=0)
+    buf.seek(0)
+    plt.close()
+
+    return buf
+
+def _create_single_point_map(lat, lon):
+    """Create map for a single position (anchored vessel)."""
+    import matplotlib.pyplot as plt
+    import geopandas as gpd
+    from shapely.geometry import Point
+    from io import BytesIO
+
+    point = Point(lon, lat)
+    gdf = gpd.GeoDataFrame({'geometry': [point]}, crs='EPSG:4326')
+    gdf_3857 = gdf.to_crs('EPSG:3857')
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=(3.5, 2.0))
+
+    # Set bounds with padding
+    x, y = gdf_3857.geometry.iloc[0].x, gdf_3857.geometry.iloc[0].y
+    padding = 2500
+    bounds = (x - padding, x + padding, y - padding, y + padding)
+
+    ax.set_xlim(bounds[0], bounds[1])
+    ax.set_ylim(bounds[2], bounds[3])
+    ax.set_aspect('equal', adjustable='datalim')
+
+    # Calculate zoom level
+    dimension = padding * 2
+    zoom = _calculate_zoom_level(dimension)
+    print(f"Single point map - Using zoom level: {zoom} for dimension: {dimension:.0f}m")
+
+    # Add basemap
+    _add_basemap_to_axis(ax, bounds, zoom)
+
+    # Plot point
+    gdf_3857.plot(ax=ax, color='#00AA00', markersize=100,
+                  edgecolor='white', linewidth=2, zorder=15, marker='o')
+
+    # Add scalebar
+    _add_scalebar(ax)
 
     ax.axis('off')
     plt.tight_layout(pad=0)
@@ -744,35 +963,320 @@ def format_table_row(row, day_data, total_log, anchor_img, sailing_img):
 # PDF GENERATION
 # ============================================================================
 
-def create_title_page(styles):
-    """Create title page elements."""
+def create_title_page(styles, df):
+    """Create professional title page with voyage information (fits A4 landscape).
+
+    Args:
+        styles: ReportLab styles
+        df: DataFrame with voyage data to extract dates and vessel info
+    """
+    from reportlab.lib.colors import HexColor
+    from reportlab.lib.enums import TA_LEFT, TA_RIGHT
+    from reportlab.platypus import Table, TableStyle
+
+    # Custom styles - REDUCED sizes for landscape
     title_bold = ParagraphStyle(
-        'CustomTitle', parent=styles['Normal'],
-        fontSize=36, leading=44, fontName='Helvetica-Bold', alignment=TA_CENTER
+        'CustomTitle',
+        parent=styles['Normal'],
+        fontSize=36,
+        leading=42,
+        fontName='Helvetica-Bold',
+        alignment=TA_CENTER,
+        textColor=HexColor('#003366')
     )
 
-    title_normal = ParagraphStyle(
-        'CustomSubtitle', parent=styles['Normal'],
-        fontSize=28, leading=34, fontName='Helvetica', alignment=TA_CENTER
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Normal'],
+        fontSize=24,
+        leading=28,
+        fontName='Helvetica',
+        alignment=TA_CENTER,
+        textColor=HexColor('#003366')
     )
 
     ship_style = ParagraphStyle(
-        'CustomShip', parent=styles['Normal'],
-        fontSize=24, leading=30, fontName='Helvetica-Bold', alignment=TA_CENTER
+        'CustomShip',
+        parent=styles['Normal'],
+        fontSize=20,
+        leading=24,
+        fontName='Helvetica-Bold',
+        alignment=TA_CENTER
     )
 
+    info_label_style = ParagraphStyle(
+        'InfoLabel',
+        parent=styles['Normal'],
+        fontSize=10,
+        fontName='Helvetica-Bold',
+        alignment=TA_RIGHT
+    )
+
+    info_value_style = ParagraphStyle(
+        'InfoValue',
+        parent=styles['Normal'],
+        fontSize=10,
+        fontName='Helvetica',
+        alignment=TA_LEFT
+    )
+
+    # Extract voyage information from data
+    start_date = df['timestamp_utc'].min().strftime('%d %B %Y')
+    end_date = df['timestamp_utc'].max().strftime('%d %B %Y')
+
+    # Get MMSI from data, fallback to config
+    mmsi = df['mmsi'].iloc[0] if 'mmsi' in df.columns else VESSEL_INFO.get('mmsi', 'N/A')
+
+    # Calculate total voyage distance
+    total_distance = 0
+    for i in range(1, len(df)):
+        dist = calculate_distance(
+            df.iloc[i-1]['latitude'], df.iloc[i-1]['longitude'],
+            df.iloc[i]['latitude'], df.iloc[i]['longitude']
+        )
+        total_distance += dist
+
+    # Get start and end positions
+    start_lat = df.iloc[0]['latitude']
+    start_lon = df.iloc[0]['longitude']
+    end_lat = df.iloc[-1]['latitude']
+    end_lon = df.iloc[-1]['longitude']
+
+    start_location = format_location_with_distance(start_lat, start_lon)
+    end_location = format_location_with_distance(end_lat, end_lon)
+
+    # Voyage duration
+    duration = (df['timestamp_utc'].max() - df['timestamp_utc'].min()).days + 1
+
     elements = [
-        Spacer(1, 80*mm),
-        Paragraph("Nautic Horizons", title_bold),
-        Spacer(1, 10*mm),
-        Paragraph("2025/2026", title_normal),
-        Spacer(1, 15*mm),
-        Paragraph("Ship Regina Maris", ship_style),
-        PageBreak()
+        Spacer(1, 30*mm),
+        Paragraph(LOGBOOK_SETTINGS.get('title', 'NAUTICAL LOGBOOK'), title_bold),
+        Spacer(1, 5*mm),
+        Paragraph(LOGBOOK_SETTINGS.get('subtitle', 'Voyage Log'), subtitle_style),
+        Spacer(1, 8*mm),
+        Paragraph(f"{VESSEL_INFO.get('prefix', 'M/V')} {VESSEL_INFO.get('name', 'Unknown')}", ship_style),
+        Spacer(1, 12*mm),
     ]
+
+    # Build voyage information table dynamically based on settings
+    voyage_info = []
+
+    # Always show MMSI if enabled
+    if LOGBOOK_SETTINGS.get('show_mmsi', True):
+        voyage_info.append([
+            Paragraph("MMSI:", info_label_style),
+            Paragraph(f"{mmsi}", info_value_style)
+        ])
+
+    # Optional: IMO Number
+    if LOGBOOK_SETTINGS.get('show_imo', False) and VESSEL_INFO.get('imo'):
+        voyage_info.append([
+            Paragraph("IMO Number:", info_label_style),
+            Paragraph(VESSEL_INFO['imo'], info_value_style)
+        ])
+
+    # Optional: Call Sign
+    if LOGBOOK_SETTINGS.get('show_call_sign', False) and VESSEL_INFO.get('call_sign'):
+        voyage_info.append([
+            Paragraph("Call Sign:", info_label_style),
+            Paragraph(VESSEL_INFO['call_sign'], info_value_style)
+        ])
+
+    # Optional: Flag State
+    if LOGBOOK_SETTINGS.get('show_flag_state', True) and VESSEL_INFO.get('flag_state'):
+        voyage_info.append([
+            Paragraph("Flaggenstaat:", info_label_style),
+            Paragraph(VESSEL_INFO['flag_state'], info_value_style)
+        ])
+
+    # Optional: Vessel Type
+    if LOGBOOK_SETTINGS.get('show_vessel_type', True) and VESSEL_INFO.get('vessel_type'):
+        voyage_info.append([
+            Paragraph("Schiffstyp:", info_label_style),
+            Paragraph(VESSEL_INFO['vessel_type'], info_value_style)
+        ])
+
+    # Optional: Dimensions
+    if LOGBOOK_SETTINGS.get('show_dimensions', False):
+        if VESSEL_INFO.get('length') and VESSEL_INFO.get('beam'):
+            voyage_info.append([
+                Paragraph("Abmessungen:", info_label_style),
+                Paragraph(f"L: {VESSEL_INFO['length']}m × B: {VESSEL_INFO['beam']}m × T: {VESSEL_INFO.get('draft', 'N/A')}m",
+                         info_value_style)
+            ])
+
+    # Optional: Master
+    if LOGBOOK_SETTINGS.get('show_master', False) and VESSEL_INFO.get('master'):
+        voyage_info.append([
+            Paragraph("Kapitän:", info_label_style),
+            Paragraph(VESSEL_INFO['master'], info_value_style)
+        ])
+
+    # Always show voyage period
+    voyage_info.append([
+        Paragraph("Reisezeitraum:", info_label_style),
+        Paragraph(f"{start_date} — {end_date}", info_value_style)
+    ])
+
+    # Always show duration
+    voyage_info.append([
+        Paragraph("Dauer:", info_label_style),
+        Paragraph(f"{duration} Tage", info_value_style)
+    ])
+
+    # Always show total distance
+    voyage_info.append([
+        Paragraph("Gesamtdistanz:", info_label_style),
+        Paragraph(f"{total_distance:.1f} Seemeilen", info_value_style)
+    ])
+
+    # Always show departure
+    voyage_info.append([
+        Paragraph("Abfahrt:", info_label_style),
+        Paragraph(f"{start_location}", info_value_style)
+    ])
+
+    # Always show arrival
+    voyage_info.append([
+        Paragraph("Ankunft:", info_label_style),
+        Paragraph(f"{end_location}", info_value_style)
+    ])
+
+    info_table = Table(voyage_info, colWidths=[50*mm, 110*mm])
+    info_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.grey),
+        ('LINEBELOW', (0, -1), (-1, -1), 1, colors.black),
+    ]))
+
+    elements.append(info_table)
+    elements.append(Spacer(1, 10*mm))
+
+    # Add footer note
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=8,
+        fontName='Helvetica-Oblique',
+        alignment=TA_CENTER,
+        textColor=colors.grey
+    )
+
+    elements.append(Paragraph(
+        "Dieses Logbuch wurde automatisch aus AIS-Positionsmeldungen (https://aisstream.io/) und Wetterdaten (https://open-meteo.com/) generiert",
+        footer_style
+    ))
+
+    elements.append(PageBreak())
 
     return elements
 
+def create_ship_track_page(geojson_path):
+    """Create a full-page map showing the ship's historical track from GeoJSON."""
+    import json
+    import matplotlib.pyplot as plt
+    import geopandas as gpd
+    from io import BytesIO
+    from reportlab.platypus import Image, PageBreak
+    from reportlab.lib.utils import ImageReader
+
+    # Read GeoJSON - it already contains LineString geometry
+    gdf = gpd.read_file(geojson_path)
+
+    if len(gdf) == 0:
+        print("No features found in GeoJSON")
+        return [PageBreak()]
+
+    # Convert to Web Mercator
+    gdf_3857 = gdf.to_crs('EPSG:3857')
+
+    # Calculate bounds
+    xmin, ymin, xmax, ymax = gdf_3857.total_bounds
+    x_range = max(xmax - xmin, 100)
+    y_range = max(ymax - ymin, 100)
+    x_center = (xmin + xmax) / 2
+    y_center = (ymin + ymax) / 2
+
+    # Add padding
+    x_padded = x_range * 1.1
+    y_padded = y_range * 1.1
+
+    # Landscape aspect ratio
+    page_aspect = 297.0 / 210.0
+    data_aspect = x_padded / y_padded
+
+    if data_aspect > page_aspect:
+        y_padded = x_padded / page_aspect
+    else:
+        x_padded = y_padded * page_aspect
+
+    # Calculate zoom level
+    max_dim_m = max(x_padded, y_padded)
+    zoom = _calculate_zoom_level(max_dim_m)
+    print(f"Ship track page - Using zoom level: {zoom} for dimension: {max_dim_m:.0f}m")
+
+    # Create figure in landscape orientation
+    fig, ax = plt.subplots(figsize=(11.69, 8.27))
+
+    bounds = (x_center - x_padded/2, x_center + x_padded/2,
+              y_center - y_padded/2, y_center + y_padded/2)
+
+    ax.set_xlim(bounds[0], bounds[1])
+    ax.set_ylim(bounds[2], bounds[3])
+    ax.set_aspect('equal', adjustable='box')
+
+    # Add basemap
+    _add_basemap_to_axis(ax, bounds, zoom)
+
+    # Plot track as red dashed line
+    gdf_3857.plot(
+        ax=ax,
+        color='red',
+        linewidth=2.5,
+        linestyle='--',
+        alpha=0.8,
+        zorder=10
+    )
+
+    ax.axis('off')
+    plt.tight_layout(pad=0)
+
+    # Save to buffer
+    buf = BytesIO()
+    plt.savefig(buf, format='png', dpi=150, bbox_inches='tight', pad_inches=0)
+    buf.seek(0)
+    plt.close()
+
+    # Calculate exact dimensions that will fit in the frame
+    # Frame size: 773.197 x 498.236 points
+    max_width = 773.197
+    max_height = 498.236
+
+    # Get image dimensions
+    img_reader = ImageReader(buf)
+    img_width, img_height = img_reader.getSize()
+
+    # Calculate scaling to fit within frame while maintaining aspect ratio
+    width_scale = max_width / img_width
+    height_scale = max_height / img_height
+    scale = min(width_scale, height_scale) * 0.95  # 95% to ensure it fits
+
+    final_width = img_width * scale
+    final_height = img_height * scale
+
+    print(f"Ship track image: {final_width:.2f} x {final_height:.2f} points")
+
+    # Reset buffer position
+    buf.seek(0)
+
+    # Create image with exact calculated dimensions
+    img = Image(buf, width=final_width, height=final_height)
+
+    return [img, PageBreak()]
 
 def get_image_with_aspect(img_buffer, max_width_mm, max_height_mm):
     """Create ReportLab Image with preserved aspect ratio."""
@@ -960,14 +1464,17 @@ def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf',
         leftMargin=10*mm,
         rightMargin=10*mm,
         topMargin=15*mm,
-        bottomMargin=15*mm
+        bottomMargin=20*mm
     )
 
     story = []
     styles = getSampleStyleSheet()
 
     # Add title page
-    story.extend(create_title_page(styles))
+    story.extend(create_title_page(styles, df))
+
+    # Add ship track page (if GeoJSON available)
+    story.extend(create_ship_track_page('ship_tracks.geojson'))
 
     # Process each day
     cumulative_log = 0
@@ -997,7 +1504,7 @@ def generate_logbook_pdf(csv_file, output_pdf='logbook.pdf',
 
 
     # Build PDF
-    pdf.build(story)
+    pdf.build(story, canvasmaker=NumberedCanvas)
     print(f"Logbook PDF generated: {output_pdf}")
 
 
