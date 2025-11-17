@@ -35,7 +35,12 @@ from reportlab.pdfgen import canvas
 import os
 from PyPDF2 import PdfReader, PdfWriter
 import re
+import locale
 
+try:
+    locale.setlocale(locale.LC_TIME, "de_CH.UTF-8")
+except locale.Error:
+    locale.setlocale(locale.LC_TIME, "de_CH.utf8")
 
 try:
     from config import VESSEL_INFO, LOGBOOK_SETTINGS
