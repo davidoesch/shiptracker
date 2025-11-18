@@ -1,14 +1,14 @@
 {
   "WeatherData": {
     "wetterzustand": "Bedeckt",
-    "luftdruck": 1021.0,
-    "windrichtung": 13,
-    "windstaerke": 23.7,
+    "luftdruck": 1021.2,
+    "windrichtung": 21,
+    "windstaerke": 26.2,
     "bewoelkung": 100,
-    "lufttemperatur": 16.0,
+    "lufttemperatur": 15.6,
     "niederschlag": 0.0,
-    "wassertemperatur": 18.0,
-    "wellenhoehe": 1.82
+    "wassertemperatur": 17.9,
+    "wellenhoehe": 1.7
   },
   "timestamp_utc": "2025-11-17T16:11:00+00:00",
   "PositionReport": {
