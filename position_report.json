@@ -1,14 +1,14 @@
 {
   "WeatherData": {
     "wetterzustand": "Teilweise bew\u00f6lkt",
-    "luftdruck": 1020.6,
-    "windrichtung": 11,
-    "windstaerke": 29.7,
-    "bewoelkung": 73,
-    "lufttemperatur": 16.1,
+    "luftdruck": 1020.5,
+    "windrichtung": 15,
+    "windstaerke": 28.6,
+    "bewoelkung": 76,
+    "lufttemperatur": 16.0,
     "niederschlag": 0.0,
     "wassertemperatur": 18.0,
-    "wellenhoehe": 2.0
+    "wellenhoehe": 1.82
   },
   "timestamp_utc": "2025-11-17T16:11:00+00:00",
   "PositionReport": {
