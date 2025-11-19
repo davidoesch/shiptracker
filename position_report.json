@@ -1,5 +1,15 @@
 {
-  "WeatherData": null,
+  "WeatherData": {
+    "wetterzustand": "Teilweise bew\u00f6lkt",
+    "luftdruck": 1022.6,
+    "windrichtung": 25,
+    "windstaerke": 34.3,
+    "bewoelkung": 65,
+    "lufttemperatur": 15.1,
+    "niederschlag": 0.0,
+    "wassertemperatur": 17.8,
+    "wellenhoehe": 1.96
+  },
   "timestamp_utc": "2025-11-17T16:11:00+00:00",
   "PositionReport": {
     "Cog": 232,
