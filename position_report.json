@@ -2,9 +2,9 @@
   "WeatherData": {
     "wetterzustand": "Bedeckt",
     "luftdruck": 1020.5,
-    "windrichtung": 18,
-    "windstaerke": 35.2,
-    "bewoelkung": 97,
+    "windrichtung": 20,
+    "windstaerke": 35.6,
+    "bewoelkung": 100,
     "lufttemperatur": 15.4,
     "niederschlag": 0.0,
     "wassertemperatur": 17.9,
