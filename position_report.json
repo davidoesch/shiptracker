@@ -1,12 +1,12 @@
 {
   "WeatherData": {
-    "wetterzustand": "Leichter Regen",
-    "luftdruck": 1024.8,
-    "windrichtung": 16,
-    "windstaerke": 39.7,
-    "bewoelkung": 93,
-    "lufttemperatur": 13.8,
-    "niederschlag": 0.1,
+    "wetterzustand": "\u00dcberwiegend klar",
+    "luftdruck": 1024.5,
+    "windrichtung": 17,
+    "windstaerke": 39.1,
+    "bewoelkung": 46,
+    "lufttemperatur": 13.9,
+    "niederschlag": 0.0,
     "wassertemperatur": 17.6,
     "wellenhoehe": 2.56
   },
