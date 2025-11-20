@@ -403,6 +403,31 @@
         "niederschlag": 0.1,
         "wellenhoehe": 3.08
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -12.0,
+          25.0
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "20.11.2025",
+        "timestamp_utc": "2025-11-20T06:04:14+00:00",
+        "cog": 999.0,
+        "sog": 999.0,
+        "navigational_status": 999,
+        "wetterzustand": "Sonnig",
+        "luftdruck": 977.1,
+        "windrichtung": 1.0,
+        "windstaerke": 16.6,
+        "bewoelkung": 15.0,
+        "lufttemperatur": 15.4,
+        "niederschlag": 0.0
+      }
     }
   ]
 }
