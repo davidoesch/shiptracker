@@ -416,19 +416,19 @@
       "properties": {
         "mmsi": 244528000,
         "date": "21.11.2025",
-        "timestamp_utc": "2025-11-21T04:32:00+00:00",
-        "cog": 186.0,
-        "sog": 7.3,
-        "navigational_status": 0,
-        "wetterzustand": "\u00dcberwiegend klar",
-        "luftdruck": 1020.7,
-        "windrichtung": 54.0,
-        "windstaerke": 38.2,
-        "bewoelkung": 30.0,
-        "lufttemperatur": 19.6,
+        "timestamp_utc": "2025-11-21T14:46:51+00:00",
+        "cog": 999.0,
+        "sog": 999.0,
+        "navigational_status": 999,
+        "wetterzustand": "Bedeckt",
+        "luftdruck": 1022.1,
+        "windrichtung": 44.0,
+        "windstaerke": 40.2,
+        "bewoelkung": 94.0,
+        "lufttemperatur": 20.0,
         "wassertemperatur": 21.8,
         "niederschlag": 0.0,
-        "wellenhoehe": 1.84
+        "wellenhoehe": 2.42
       }
     }
   ]
