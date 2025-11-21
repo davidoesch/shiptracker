@@ -1,11 +1,11 @@
 {
   "WeatherData": {
-    "wetterzustand": "Teilweise bew\u00f6lkt",
-    "luftdruck": 1022.7,
-    "windrichtung": 47,
-    "windstaerke": 41.0,
-    "bewoelkung": 60,
-    "lufttemperatur": 20.0,
+    "wetterzustand": "Bedeckt",
+    "luftdruck": 1022.2,
+    "windrichtung": 48,
+    "windstaerke": 41.3,
+    "bewoelkung": 94,
+    "lufttemperatur": 19.9,
     "niederschlag": 0.0,
     "wassertemperatur": 21.8,
     "wellenhoehe": 2.42
