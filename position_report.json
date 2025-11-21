@@ -1,13 +1,13 @@
 {
   "WeatherData": {
     "wetterzustand": "\u00dcberwiegend klar",
-    "luftdruck": 1022.8,
-    "windrichtung": 52,
-    "windstaerke": 39.5,
+    "luftdruck": 1023.3,
+    "windrichtung": 55,
+    "windstaerke": 41.6,
     "bewoelkung": 40,
-    "lufttemperatur": 19.9,
+    "lufttemperatur": 19.7,
     "niederschlag": 0.0,
-    "wassertemperatur": 21.7,
+    "wassertemperatur": 21.6,
     "wellenhoehe": 2.84
   },
   "timestamp_utc": "2025-11-21T04:32:00+00:00",
