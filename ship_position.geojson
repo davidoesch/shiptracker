@@ -437,22 +437,22 @@
         "type": "Point",
         "coordinates": [
           -16.24387,
-          28.46449
+          28.4645
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "22.11.2025",
-        "timestamp_utc": "2025-11-22T10:34:55+00:00",
+        "timestamp_utc": "2025-11-22T10:52:52+00:00",
         "cog": 360.0,
         "sog": 0.1,
         "navigational_status": 5,
         "wetterzustand": "Bedeckt",
-        "luftdruck": 1020.9,
-        "windrichtung": 88.0,
-        "windstaerke": 11.9,
-        "bewoelkung": 88.0,
-        "lufttemperatur": 21.0,
+        "luftdruck": 1021.0,
+        "windrichtung": 87.0,
+        "windstaerke": 13.7,
+        "bewoelkung": 91.0,
+        "lufttemperatur": 21.4,
         "wassertemperatur": 22.4,
         "niederschlag": 0.0,
         "wellenhoehe": 1.16
