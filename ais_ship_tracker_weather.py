@@ -393,6 +393,304 @@ def get_ship_data_from_scrapesite(ship_id, mmsi, debug=False, headless=False):
     finally:
         driver.quit()
 
+# ============================================================================
+# OPTION 3: HAR ANALYSIS
+# ============================================================================
+
+def setup_driver_with_performance_log():
+    """Setup undetected_chromedriver with performance logging."""
+    options = uc.ChromeOptions()
+    options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
+    options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--window-size=1920,1080')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--disable-blink-features=AutomationControlled')
+
+    driver = uc.Chrome(options=options)
+    print("✓ Browser started with Performance Logging")
+    return driver
+
+
+def convert_performance_log_to_har(performance_log, debug=False):
+    """Convert Chrome Performance Log to HAR format."""
+    print("   Converting Performance Log to HAR format...")
+
+    har = {
+        "log": {
+            "version": "1.2",
+            "creator": {"name": "Python HAR Exporter", "version": "1.0"},
+            "entries": []
+        }
+    }
+
+    requests = {}
+
+    for entry in performance_log:
+        try:
+            message = json.loads(entry['message'])
+            method = message.get('message', {}).get('method', '')
+            params = message.get('message', {}).get('params', {})
+
+            if method == 'Network.requestWillBeSent':
+                request_id = params.get('requestId')
+                request = params.get('request', {})
+                requests[request_id] = {
+                    'request': request,
+                    'response': None,
+                    'timestamp': params.get('timestamp', 0)
+                }
+
+            elif method == 'Network.responseReceived':
+                request_id = params.get('requestId')
+                if request_id in requests:
+                    requests[request_id]['response'] = params.get('response', {})
+
+        except:
+            continue
+
+    for request_id, data in requests.items():
+        if not data.get('request'):
+            continue
+
+        request = data['request']
+        response = data.get('response') or {}
+
+        har_entry = {
+            "request": {
+                "method": request.get('method', 'GET'),
+                "url": request.get('url', ''),
+                "headers": [
+                    {"name": k, "value": v}
+                    for k, v in request.get('headers', {}).items()
+                ]
+            },
+            "response": {
+                "status": response.get('status', 0) if response else 0,
+                "headers": [
+                    {"name": k, "value": v}
+                    for k, v in response.get('headers', {}).items()
+                ] if response else []
+            }
+        }
+
+        har['log']['entries'].append(har_entry)
+
+    print(f"   ✓ Converted {len(har['log']['entries'])} network requests")
+    return har
+
+
+def analyze_har_for_coordinates(har_data, ship_id, debug=False):
+    """Analyze HAR data for centerx/centery coordinates."""
+    print(f"\n{'='*70}")
+    print(f"Analyzing HAR for centerx/centery coordinates")
+    print(f"{'='*70}\n")
+
+    entries = har_data['log']['entries']
+    print(f"Total HAR entries: {len(entries)}")
+
+    found_coords = []
+
+    for i, entry in enumerate(entries):
+        url = entry['request']['url']
+
+        if 'centerx:' in url and 'centery:' in url:
+            centerx_match = re.search(r'centerx:([-\d.]+)', url)
+            centery_match = re.search(r'centery:([-\d.]+)', url)
+
+            if centerx_match and centery_match:
+                lon = float(centerx_match.group(1))
+                lat = float(centery_match.group(1))
+
+                found_coords.append({
+                    'index': i,
+                    'lat': lat,
+                    'lon': lon,
+                    'url': url,
+                    'source': 'URL'
+                })
+
+                if debug:
+                    print(f"[{i}] Found in URL: lat={lat}, lon={lon}")
+
+        for header in entry['request']['headers']:
+            if header['name'].lower() == 'referer':
+                referer = header['value']
+
+                if 'centerx:' in referer and 'centery:' in referer:
+                    centerx_match = re.search(r'centerx:([-\d.]+)', referer)
+                    centery_match = re.search(r'centery:([-\d.]+)', referer)
+
+                    if centerx_match and centery_match:
+                        lon = float(centerx_match.group(1))
+                        lat = float(centery_match.group(1))
+
+                        found_coords.append({
+                            'index': i,
+                            'lat': lat,
+                            'lon': lon,
+                            'referer': referer,
+                            'url': url,
+                            'source': 'REFERER'
+                        })
+
+                        if debug:
+                            print(f"[{i}] Found in REFERER: lat={lat}, lon={lon}")
+
+    print(f"\n{'='*70}")
+    print(f"RESULTS: Found {len(found_coords)} coordinate entries")
+    print(f"{'='*70}\n")
+
+    unique_coords = {}
+    for coord in found_coords:
+        key = (coord['lat'], coord['lon'])
+        if key not in unique_coords:
+            unique_coords[key] = coord
+
+    if unique_coords:
+        print(f"Unique coordinates found:\n")
+        for i, (key, coord) in enumerate(unique_coords.items()):
+            print(f"[{i+1}] Lat: {coord['lat']}, Lon: {coord['lon']}")
+            print(f"    Source: {coord['source']}")
+            print()
+
+        coords_list = list(unique_coords.values())
+
+        if len(coords_list) > 1:
+            print(f"ℹ Multiple coordinates found - returning LAST one (most specific)")
+            print(f"  → Lat: {coords_list[-1]['lat']}, Lon: {coords_list[-1]['lon']}\n")
+            return coords_list[-1]
+        else:
+            return coords_list[0]
+    else:
+        print("✗ No centerx/centery coordinates found in HAR")
+        return None
+
+
+def get_ship_data_from_har_analysis(ship_id, mmsi, debug=False):
+    """
+    Extract ship coordinates using HAR analysis method.
+
+    Args:
+        ship_id: MarineTraffic ship ID
+        mmsi: Ship MMSI number
+        debug: Enable debug output
+
+    Returns:
+        dict: Ship data with keys: timestamp_utc, mmsi, latitude, longitude,
+              cog, sog, true_heading, nav_status, shipname (most empty/default values)
+        None: If extraction fails
+    """
+    driver = setup_driver_with_performance_log()
+
+    try:
+        map_url = f"https://www.marinetraffic.com/en/ais/home/shipid:{ship_id}/zoom:10"
+
+        print(f"\n{'='*70}")
+        print(f"HAR Export with Reload - Exact Manual Process")
+        print(f"{'='*70}")
+        print(f"Ship ID: {ship_id}\n")
+
+        # Clear browser cache and storage
+        print(f"Step 0: Clearing browser cache and storage...")
+        driver.execute_cdp_cmd('Network.enable', {})
+        driver.execute_cdp_cmd('Network.clearBrowserCache', {})
+        driver.execute_cdp_cmd('Network.clearBrowserCookies', {})
+
+        driver.get("https://www.marinetraffic.com")
+        time.sleep(1)
+
+        driver.execute_script("""
+            localStorage.clear();
+            sessionStorage.clear();
+            indexedDB.databases().then(dbs => {
+                dbs.forEach(db => {
+                    indexedDB.deleteDatabase(db.name);
+                });
+            });
+        """)
+
+        print(f"✓ Browser cache and storage cleared\n")
+
+        # Load page
+        print(f"Step 1-2: Loading page (Network capture active)...")
+        print(f"URL: {map_url}")
+        driver.get(map_url)
+        time.sleep(3)
+        print(f"✓ Page loaded\n")
+
+        # Handle cookies
+        print(f"Step 3: Clicking Cookie Accept...")
+        handle_cookie_consent(driver, debug=True)
+        time.sleep(2)
+        print(f"✓ Cookie accepted\n")
+
+        # Reload page
+        print(f"Step 4: RELOADING page (this captures fresh network traffic)...")
+        driver.refresh()
+        time.sleep(5)
+        print(f"✓ Page reloaded\n")
+
+        # Export HAR
+        print(f"Step 5: Exporting HAR (retrieving Performance Log)...")
+        performance_log = driver.get_log('performance')
+        print(f"✓ Retrieved {len(performance_log)} performance log entries\n")
+
+        # Convert to HAR
+        print(f"Converting to HAR format...")
+        har_data = convert_performance_log_to_har(performance_log, debug=debug)
+
+        # Save HAR file
+        har_filename = f'marinetraffic_{ship_id}_har.json'
+        with open(har_filename, 'w', encoding='utf-8') as f:
+            json.dump(har_data, f, indent=2)
+        print(f"✓ HAR file saved: {har_filename}\n")
+
+        # Analyze HAR
+        print(f"Step 6: Analyzing HAR for centerx/centery...")
+        coords = analyze_har_for_coordinates(har_data, ship_id, debug=debug)
+
+        if coords:
+            # Create ship_data dict with coordinates and empty/default values
+            current_time = datetime.now(timezone.utc).replace(microsecond=0)
+
+            ship_data = {
+                'timestamp_utc': current_time.isoformat(),
+                'mmsi': mmsi,
+                'latitude': round(coords['lat'], 5),
+                'longitude': round(coords['lon'], 5),
+                'cog': 360,  # is no data value
+                'sog': 5.5,  # Assuming some movement
+                'true_heading': 511,  # Empty/default
+                'nav_status': 0,  # IN Optione 3 we assume underway
+                'shipname': ' '  # Empty/default
+            }
+
+            print(f"✓ HAR analysis successful for MMSI {mmsi}")
+            try:
+                if os.path.exists(har_filename):
+                    os.remove(har_filename)
+
+            except Exception as e:
+                print(f"Could not delete HAR file {har_filename}: {e}")
+            return ship_data
+        else:
+            print(f"\nℹ HAR file saved for manual inspection: {har_filename}")
+            return None
+
+    except Exception as e:
+        print(f"\n{'='*70}")
+        print(f"✗ HAR Analysis Exception:")
+        print(f"{'='*70}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+    finally:
+        print(f"\nClosing browser...")
+        driver.quit()
+
 
 # ============================================================================
 # DATA PROCESSING AND STORAGE
@@ -710,6 +1008,17 @@ async def main():
             headless=False  # Show browser window
         )
 
+    # OPTION 3: If scraping fails, try HAR analysis
+    if ship_data is None:
+        print("=" * 60)
+        print("OPTION 3: Attempting HAR Analysis...")
+        print("=" * 60)
+
+        ship_data = get_ship_data_from_har_analysis(
+            ship_id=ship_id,
+            mmsi=mmsi,
+            debug=True
+        )
     # Process and save if we got data
     if ship_data:
         success, latest_entry_time, latest_entry, weather_data = await process_and_save_ship_data(
