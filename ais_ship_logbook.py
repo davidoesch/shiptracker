@@ -164,7 +164,7 @@ ICON_CENTER = 4.8
 WEATHER_CELL_WIDTH = 19.2
 
 # Table column widths in mm
-COLUMN_WIDTHS = [10, 10, 10, 10, 11, 32, 10, 10, 11, 10, 10, 10, 20, 10, 38]
+COLUMN_WIDTHS = [10, 10, 10, 10, 11, 32, 10, 10, 11, 10, 16, 10, 10, 20, 10, 32]
 
 # GeoNames API configuration
 def get_api_key():
@@ -243,6 +243,39 @@ def get_wind_direction_abbr(degrees):
     index = int((degrees + 11.25) / 22.5) % 16
     return WIND_DIRECTIONS[index]
 
+def get_sea_state_description(wave_height):
+    """
+    Convert wave height to German sea state description (Seegang).
+
+    Args:
+        wave_height: Wave height in meters
+
+    Returns:
+        english sea state description
+    """
+    if pd.isna(wave_height):
+        return "---"
+
+    if wave_height == 0:
+        return "calm-glassy"
+    elif wave_height <= 0.1:
+        return "calm-rippled"
+    elif wave_height <= 0.5:
+        return "smooth"
+    elif wave_height <= 1.25:
+        return "slight"
+    elif wave_height <= 2.5:
+        return "moderate"
+    elif wave_height <= 4.0:
+        return "rough"
+    elif wave_height <= 6.0:
+        return "very rough"
+    elif wave_height <= 9.0:
+        return "high"
+    elif wave_height <= 14.0:
+        return "very high"
+    else:
+        return "pheonomenal"
 
 def get_bearing_text(lat1, lon1, lat2, lon2):
     """Calculate bearing and return direction text (N, NE, SW, etc)."""
@@ -581,7 +614,7 @@ def create_pressure_chart(day_data):
     return buf
 
 
-def create_track_map(day_data):
+def create_track_map(day_data, single_map=False):
     """Create track map with satellite basemap (if available)."""
     lats = day_data['latitude'].values
     lons = day_data['longitude'].values
@@ -589,7 +622,7 @@ def create_track_map(day_data):
 
 
     # Handle single point
-    if len(lats) < 2:
+    if single_map:
         return _create_single_point_map(lats[0], lons[0])
 
     # Create map with track line
@@ -678,8 +711,9 @@ def _fetch_and_composite_tiles(xmin, ymin, xmax, ymax, zoom):
     return None, None, None
 
 def _calculate_zoom_level(dimension_meters):
-    """Calculate optimal zoom level based on dimension in meters."""
-    return max(1, min(19, round(20 - math.log2(dimension_meters / 100))))
+    """Calculate optimal zoom level based on dimension in meters.
+    Maximum zoom level is 14 to avoid over-zooming."""
+    return max(1, min(13, round(20 - math.log2(dimension_meters / 100))))
 
 def _add_basemap_to_axis(ax, bounds, zoom):
     """Add Esri satellite imagery and labels to the axis.
@@ -824,19 +858,35 @@ def _create_single_point_map(lat, lon):
     # Create figure
     fig, ax = plt.subplots(figsize=(3.5, 2.0))
 
-    # Set bounds with padding
+    # Get point coordinates
     x, y = gdf_3857.geometry.iloc[0].x, gdf_3857.geometry.iloc[0].y
-    padding = 2500
-    bounds = (x - padding, x + padding, y - padding, y + padding)
+
+    # Set initial padding
+    base_padding = 2500
+    x_padded = base_padding * 2
+    y_padded = base_padding * 2
+
+    # Adjust for figure aspect ratio (matching track map logic)
+    fig_aspect = 3.5 / 2.0
+    data_aspect = x_padded / y_padded
+
+    if data_aspect > fig_aspect:
+        y_padded = x_padded / fig_aspect
+    else:
+        x_padded = y_padded * fig_aspect
+
+    # Calculate bounds centered on point
+    bounds = (x - x_padded/2, x + x_padded/2,
+              y - y_padded/2, y + y_padded/2)
 
     ax.set_xlim(bounds[0], bounds[1])
     ax.set_ylim(bounds[2], bounds[3])
     ax.set_aspect('equal', adjustable='datalim')
 
     # Calculate zoom level
-    dimension = padding * 2
-    zoom = _calculate_zoom_level(dimension)
-    print(f"Single point map - Using zoom level: {zoom} for dimension: {dimension:.0f}m")
+    max_dim_m = max(x_padded, y_padded)
+    zoom = _calculate_zoom_level(max_dim_m)
+    print(f"Single point map - Using zoom level: {zoom} for dimension: {max_dim_m:.0f}m")
 
     # Add basemap
     _add_basemap_to_axis(ax, bounds, zoom)
@@ -859,12 +909,32 @@ def _create_single_point_map(lat, lon):
     return buf
 
 
+
 # ============================================================================
 # DATA PROCESSING
 # ============================================================================
 
 def sample_hourly_data(day_data, max_entries=19):
-    """Sample data to fit on one page (max 19 entries + 3 summary rows)."""
+    """Sample data to fit on one page (max 19 entries + 3 summary rows).
+    For anchored days (total distance = 0), show only first and last entry."""
+
+    # Calculate total distance for the day to check if anchored
+    total_distance = 0
+    for i in range(1, len(day_data)):
+        dist = calculate_distance(
+            day_data.iloc[i-1]['latitude'], day_data.iloc[i-1]['longitude'],
+            day_data.iloc[i]['latitude'], day_data.iloc[i]['longitude']
+        )
+        total_distance += dist
+
+    # If anchored (distance < 0.1 nm), show only first and last
+    if total_distance < 0.1 and len(day_data) > 1:
+        return pd.concat([
+            day_data.iloc[0:1].copy(),
+            day_data.iloc[-1:].copy()
+        ]).reset_index(drop=True)
+
+    # Original sampling logic for non-anchored days
     if len(day_data) <= max_entries:
         return day_data.reset_index(drop=True)
 
@@ -922,6 +992,9 @@ def format_table_row(row, day_data, total_log, anchor_img, sailing_img):
     elif pd.isna(witterung):
         witterung = ''
 
+    # Get sea state description
+    sea_state = get_sea_state_description(row.get('wellenhoehe'))
+
     # Format numeric values
     def fmt(val, fmt_str="---"):
         return f"{val:{fmt_str}}" if pd.notna(val) else "---"
@@ -945,11 +1018,12 @@ def format_table_row(row, day_data, total_log, anchor_img, sailing_img):
         fmt(row.get('lufttemperatur'), '.1f'),
         fmt(row.get('wassertemperatur'), '.1f'),
         fmt(row.get('wellenhoehe'), '.2f'),
+        sea_state,  # NEW COLUMN
         fmt(row.get('niederschlag'), '.1f'),
         cog_str,
         sog_str,
         f"{total_log:.1f}",
-        format_position(row['latitude'], row['longitude'])[:30]
+        format_position(row['latitude'], row['longitude'])[:25]  # Reduced from 30 to 25
     ]
 
 
@@ -1292,21 +1366,37 @@ def get_image_with_aspect(img_buffer, max_width_mm, max_height_mm):
 
 def create_day_page(date, day_data, cumulative_log, previous_day_log,
                     styles, anchor_img, sailing_img,
-                    last_pos_prev_day={'lat': None, 'lon': None}): # <--- ADDED PARAMETER
+                    last_pos_prev_day={'lat': None, 'lon': None}):
     """Create a complete day page with header, charts, and logbook table."""
     elements = []
 
     # Date header
-    # Set locale to German (Switzerland)
     locale.setlocale(locale.LC_TIME, 'de_CH.UTF-8')
     date_str = date.strftime('%A, %d. %B %Y')
     header = Paragraph(f"{date_str}", styles['Heading2'])
     elements.append(header)
     elements.append(Spacer(1, 2*mm))
 
+
+    # Calculate distance from previous day's last position to current day's first position
+    day_log = 0
+    if last_pos_prev_day['lat'] is not None and len(day_data) > 0:
+        dist_offset = calculate_distance(
+            last_pos_prev_day['lat'], last_pos_prev_day['lon'],
+            day_data.iloc[0]['latitude'], day_data.iloc[0]['longitude']
+        )
+        day_log += dist_offset
+
+
+    # Determine if single point map is needed (single measurement) or anchored (no movement)
+    if len(day_data) < 2 or day_log <= 0.09:
+        single_map = True
+    else:
+        single_map = False
+
     # Create charts
     pressure_chart = create_pressure_chart(day_data)
-    track_map = create_track_map(day_data)
+    track_map = create_track_map(day_data, single_map=single_map)
 
     pressure_img = get_image_with_aspect(pressure_chart, 60, 43)
     track_img = get_image_with_aspect(track_map, 93, 40)
@@ -1333,19 +1423,18 @@ def create_day_page(date, day_data, cumulative_log, previous_day_log,
                    f"{last_location}")
     from_to = Paragraph(from_to_text, styles['Normal'])
 
-   # Create header table with charts - use exact data table width
+    # Create header table with charts
     data_table_width = sum(COLUMN_WIDTHS)
 
-    # Single row header: from_to on left, pressure chart, track map on right
     header_table = Table(
         [[from_to, pressure_img, track_img]],
         colWidths=[(data_table_width - 153)*mm, 60*mm, 93*mm]
     )
     header_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ALIGN', (0, 0), (0, 0), 'LEFT'),    # From/To text left-aligned
-        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),   # Pressure chart right-aligned
-        ('ALIGN', (2, 0), (2, 0), 'RIGHT'),   # Track map right-aligned
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
     ]))
@@ -1353,52 +1442,37 @@ def create_day_page(date, day_data, cumulative_log, previous_day_log,
     elements.append(header_table)
     elements.append(Spacer(1, 3*mm))
 
-    # Create logbook table
+    # Create logbook table with NEW HEADER
     table_data = [[
         'Zeit\nUTC', 'Status', 'Wind\nR.', 'Wind\nkn', 'Wetter', 'Witterung',
-        'L.Druck\nmbar', 'T.Luft\n°C', 'T.Wasser\n°C', 'Wellen\nm', 'Regen\nmm',
-        'Kurs\n°', 'Fahrt\nkn', 'Log\nsm', 'Position'
+        'L.Druck\nmbar', 'T.Luft\n°C', 'T.Wasser\n°C', 'Wellen\nm', 'Seegang\n Douglas',
+        'Regen\nmm', 'Kurs\n°', 'Fahrt\nkn', 'Log\nsm', 'Position'
     ]]
 
     # Add data rows
-    day_log = 0  # Distance covered during this day only
-
-
-    # Calculate distance from previous day's last position to current day's first position
-    if last_pos_prev_day['lat'] is not None and len(day_data) > 0:
-        dist_offset = calculate_distance(
-            last_pos_prev_day['lat'], last_pos_prev_day['lon'],
-            day_data.iloc[0]['latitude'], day_data.iloc[0]['longitude']
-        )
-        day_log += dist_offset
-
 
     for idx, row in day_data.iterrows():
         row_position = day_data.index.get_loc(idx)
 
-        # Skip distance calculation for the very first point of the day
-        # (The distance from the previous day's last point is already added above)
         if row_position > 0:
             prev_idx = day_data.index[row_position - 1]
             prev = day_data.loc[prev_idx]
             dist = calculate_distance(prev['latitude'], prev['longitude'],
                                     row['latitude'], row['longitude'])
             day_log += dist
-        # The first position of the day's distance is accounted for by dist_offset above.
 
         table_data.append(format_table_row(row, day_data, day_log,
                                           anchor_img, sailing_img))
 
     # Add summary rows
-    # day_log now contains the total distance for this day, including the offset
     table_data.append(['', '', '', '', '', '', '', '', '', '', '', '',
-                      'Tagessumme', f'{day_log:.1f}', ''])
+                      '', 'Tagessumme', f'{day_log:.1f}', ''])
     table_data.append(['', '', '', '', '', '', '', '', '', '', '', '',
-                      'Vortrag', f'{previous_day_log:.1f}', ''])
+                      '', 'Vortrag', f'{previous_day_log:.1f}', ''])
 
     cumulative_log += day_log
     table_data.append(['', '', '', '', '', '', '', '', '', '', '', '',
-                      'Gesamt', f'{cumulative_log:.1f}', ''])
+                      '', 'Gesamt', f'{cumulative_log:.1f}', ''])
 
     # Create and style table
     col_widths_mm = [w*mm for w in COLUMN_WIDTHS]
