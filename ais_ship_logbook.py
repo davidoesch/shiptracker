@@ -1401,7 +1401,7 @@ def create_day_page(date, day_data, cumulative_log, previous_day_log,
         single_map = True
     else:
         single_map = False
-    
+
     # Create charts
     pressure_chart = create_pressure_chart(day_data)
     track_map = create_track_map(day_data, single_map=single_map)
@@ -1458,7 +1458,14 @@ def create_day_page(date, day_data, cumulative_log, previous_day_log,
     ]]
 
     # Add data rows
-
+    # Calculate distance from previous day's last position to current day's first position
+    day_log = 0
+    if last_pos_prev_day['lat'] is not None and len(day_data) > 0:
+        dist_offset = calculate_distance(
+            last_pos_prev_day['lat'], last_pos_prev_day['lon'],
+            day_data.iloc[0]['latitude'], day_data.iloc[0]['longitude']
+        )
+        day_log += dist_offset
     for idx, row in day_data.iterrows():
         row_position = day_data.index.get_loc(idx)
 
