@@ -6,26 +6,456 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -16.24385,
-          28.46454
+          4.88607,
+          52.39247
         ]
       },
       "properties": {
         "mmsi": 244528000,
-        "date": "24.11.2025",
-        "timestamp_utc": "2025-11-24T20:54:15+00:00",
+        "date": "17.10.2025",
+        "timestamp_utc": "2025-10-17T08:39:46+00:00",
+        "cog": 360.0,
+        "sog": 0.0,
+        "navigational_status": 8,
+        "wetterzustand": "Teilweise bew\u00f6lkt",
+        "luftdruck": 1025.8,
+        "windrichtung": 328.0,
+        "windstaerke": 11.9,
+        "bewoelkung": 70.0,
+        "lufttemperatur": 13.8,
+        "niederschlag": 0.0
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.92929,
+          51.42437
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "19.10.2025",
+        "timestamp_utc": "2025-10-19T23:51:38+00:00",
+        "cog": 224.4,
+        "sog": 4.3,
+        "navigational_status": 8,
+        "wetterzustand": "M\u00e4\u00dfiger Regen",
+        "luftdruck": 997.9,
+        "windrichtung": 164.0,
+        "windstaerke": 40.0,
+        "bewoelkung": 100.0,
+        "lufttemperatur": 13.9,
+        "wassertemperatur": 15.2,
+        "niederschlag": 1.2,
+        "wellenhoehe": 0.76
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.92329,
+          51.23392
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "20.10.2025",
+        "timestamp_utc": "2025-10-20T04:58:06+00:00",
         "cog": 360.0,
         "sog": 0.0,
         "navigational_status": 5,
-        "wetterzustand": "Sonnig",
-        "luftdruck": 1022.5,
-        "windrichtung": 270,
-        "windstaerke": 2.9,
-        "bewoelkung": 12,
-        "lufttemperatur": 21.5,
-        "wassertemperatur": 22.4,
+        "wetterzustand": "\u00dcberwiegend klar",
+        "luftdruck": 996.5,
+        "windrichtung": 199.0,
+        "windstaerke": 14.8,
+        "bewoelkung": 21.0,
+        "lufttemperatur": 13.9,
+        "wassertemperatur": 15.1,
         "niederschlag": 0.0,
-        "wellenhoehe": 0.62
+        "wellenhoehe": 0.88
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          1.59779,
+          50.72777
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "22.10.2025",
+        "timestamp_utc": "2025-10-22T15:35:27+00:00",
+        "cog": 360.0,
+        "sog": 0.0,
+        "navigational_status": 5,
+        "wetterzustand": "Bedeckt",
+        "luftdruck": 996.6,
+        "windrichtung": 219.0,
+        "windstaerke": 10.2,
+        "bewoelkung": 94.0,
+        "lufttemperatur": 15.0,
+        "wassertemperatur": 15.4,
+        "niederschlag": 0.0,
+        "wellenhoehe": 0.64
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.30661,
+          50.00467
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "25.10.2025",
+        "timestamp_utc": "2025-10-25T23:51:40+00:00",
+        "cog": 222.6,
+        "sog": 3.3,
+        "navigational_status": 8,
+        "wetterzustand": "Bedeckt",
+        "luftdruck": 1009.6,
+        "windrichtung": 285.0,
+        "windstaerke": 46.2,
+        "bewoelkung": 88.0,
+        "lufttemperatur": 12.3,
+        "wassertemperatur": 16.1,
+        "niederschlag": 0.0,
+        "wellenhoehe": 1.68
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.13624,
+          49.48108
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "26.10.2025",
+        "timestamp_utc": "2025-10-26T19:25:11+00:00",
+        "cog": 360.0,
+        "sog": 0.0,
+        "navigational_status": 0,
+        "wetterzustand": "Leichter Regen",
+        "luftdruck": 1011.7,
+        "windrichtung": 260.0,
+        "windstaerke": 29.9,
+        "bewoelkung": 100.0,
+        "lufttemperatur": 12.1,
+        "wassertemperatur": 13.4,
+        "niederschlag": 0.3,
+        "wellenhoehe": 1.32
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.60292,
+          49.66878
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "30.10.2025",
+        "timestamp_utc": "2025-10-30T18:59:00+00:00",
+        "cog": 999.0,
+        "sog": 0.0,
+        "navigational_status": 1,
+        "wetterzustand": "Bedeckt",
+        "luftdruck": 1005.8,
+        "windrichtung": 153.0,
+        "windstaerke": 20.1,
+        "bewoelkung": 100.0,
+        "lufttemperatur": 11.9,
+        "wassertemperatur": 15.3,
+        "niederschlag": 0.0,
+        "wellenhoehe": 0.7
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.61933,
+          49.63871
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "31.10.2025",
+        "timestamp_utc": "2025-10-31T03:24:00+00:00",
+        "cog": 999.0,
+        "sog": 0.0,
+        "navigational_status": 1,
+        "wetterzustand": "Teilweise bew\u00f6lkt",
+        "luftdruck": 1003.7,
+        "windrichtung": 186.0,
+        "windstaerke": 21.7,
+        "bewoelkung": 77.0,
+        "lufttemperatur": 13.9,
+        "wassertemperatur": 14.1,
+        "niederschlag": 0.0,
+        "wellenhoehe": 0.84
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.27634,
+          49.40612
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "04.11.2025",
+        "timestamp_utc": "2025-11-04T23:59:00+00:00",
+        "cog": 240.0,
+        "sog": 9.1,
+        "navigational_status": 0,
+        "wetterzustand": "Bedeckt",
+        "luftdruck": 1008.5,
+        "windrichtung": 174.0,
+        "windstaerke": 48.9,
+        "bewoelkung": 100.0,
+        "lufttemperatur": 15.6,
+        "wassertemperatur": 15.1,
+        "niederschlag": 0.0,
+        "wellenhoehe": 1.34
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.62648,
+          47.96514
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "05.11.2025",
+        "timestamp_utc": "2025-11-05T23:55:00+00:00",
+        "cog": 236.0,
+        "sog": 3.2,
+        "navigational_status": 0,
+        "wetterzustand": "Bedeckt",
+        "luftdruck": 1000.6,
+        "windrichtung": 173.0,
+        "windstaerke": 21.0,
+        "bewoelkung": 100.0,
+        "lufttemperatur": 15.9,
+        "wassertemperatur": 14.4,
+        "niederschlag": 0.0,
+        "wellenhoehe": 3.5
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -6.98937,
+          45.97234
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "06.11.2025",
+        "timestamp_utc": "2025-11-06T23:52:00+00:00",
+        "cog": 201.0,
+        "sog": 2.5,
+        "navigational_status": 0,
+        "wetterzustand": "Bedeckt",
+        "luftdruck": 1006.9,
+        "windrichtung": 216.0,
+        "windstaerke": 33.5,
+        "bewoelkung": 100.0,
+        "lufttemperatur": 15.8,
+        "wassertemperatur": 15.9,
+        "niederschlag": 0.0,
+        "wellenhoehe": 3.86
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -6.99145,
+          45.76475
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "07.11.2025",
+        "timestamp_utc": "2025-11-07T03:12:00+00:00",
+        "cog": 158.0,
+        "sog": 4.5,
+        "navigational_status": 0,
+        "wetterzustand": "Bedeckt",
+        "luftdruck": 1003.4,
+        "windrichtung": 201.0,
+        "windstaerke": 51.5,
+        "bewoelkung": 100.0,
+        "lufttemperatur": 16.0,
+        "wassertemperatur": 16.1,
+        "niederschlag": 0.0,
+        "wellenhoehe": 3.7
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -8.38306,
+          43.36712
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "08.11.2025",
+        "timestamp_utc": "2025-11-08T23:52:14+00:00",
+        "cog": 360.0,
+        "sog": 0.0,
+        "navigational_status": 8,
+        "wetterzustand": "\u00dcberwiegend klar",
+        "luftdruck": 1022.4,
+        "windrichtung": 165.0,
+        "windstaerke": 5.6,
+        "bewoelkung": 34.0,
+        "lufttemperatur": 8.3,
+        "wassertemperatur": 16.0,
+        "niederschlag": 0.0,
+        "wellenhoehe": 2.28
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -9.75554,
+          42.06259
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "16.11.2025",
+        "timestamp_utc": "2025-11-16T23:58:00+00:00",
+        "cog": 210.0,
+        "sog": 7.4,
+        "navigational_status": 0,
+        "wetterzustand": "Teilweise bew\u00f6lkt",
+        "luftdruck": 1010.8,
+        "windrichtung": 359.0,
+        "windstaerke": 30.2,
+        "bewoelkung": 58.0,
+        "lufttemperatur": 15.6,
+        "wassertemperatur": 16.9,
+        "niederschlag": 0.0,
+        "wellenhoehe": 2.8
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -11.3494,
+          40.55882
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "17.11.2025",
+        "timestamp_utc": "2025-11-17T16:11:00+00:00",
+        "cog": 232.0,
+        "sog": 9.6,
+        "navigational_status": 0,
+        "wetterzustand": "Teilweise bew\u00f6lkt",
+        "luftdruck": 1018.9,
+        "windrichtung": 16.0,
+        "windstaerke": 44.9,
+        "bewoelkung": 67.0,
+        "lufttemperatur": 17.2,
+        "wassertemperatur": 18.0,
+        "niederschlag": 0.1,
+        "wellenhoehe": 3.08
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -15.60927,
+          29.32851
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "21.11.2025",
+        "timestamp_utc": "2025-11-21T23:24:00+00:00",
+        "cog": 199.0,
+        "sog": 8.0,
+        "navigational_status": 0,
+        "wetterzustand": "\u00dcberwiegend klar",
+        "luftdruck": 1020.8,
+        "windrichtung": 40.0,
+        "windstaerke": 38.1,
+        "bewoelkung": 35.0,
+        "lufttemperatur": 21.0,
+        "wassertemperatur": 22.8,
+        "niederschlag": 0.0,
+        "wellenhoehe": 2.42
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -16.24385,
+          28.46456
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "22.11.2025",
+        "timestamp_utc": "2025-11-22T23:52:53+00:00",
+        "cog": 360.0,
+        "sog": 0.0,
+        "navigational_status": 5,
+        "wetterzustand": "\u00dcberwiegend klar",
+        "luftdruck": 1020.7,
+        "windrichtung": 54.0,
+        "windstaerke": 12.4,
+        "bewoelkung": 36.0,
+        "lufttemperatur": 20.0,
+        "wassertemperatur": 22.2,
+        "niederschlag": 0.0,
+        "wellenhoehe": 1.48
       }
     }
   ]
