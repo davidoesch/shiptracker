@@ -1,0 +1,2 @@
+timestamp_utc,mmsi,latitude,longitude,cog,sog,true_heading,navigational_status,wetterzustand,luftdruck,windrichtung,windstaerke,bewoelkung,lufttemperatur,wassertemperatur,niederschlag,wellenhoehe
+2025-11-24T20:54:15+00:00,244528000,28.46454,-16.24385,360,0,511,5,Sonnig,1022.5,270,2.9,12,21.5,22.4,0.0,0.62
