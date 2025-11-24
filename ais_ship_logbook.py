@@ -1386,14 +1386,22 @@ def create_day_page(date, day_data, cumulative_log, previous_day_log,
             day_data.iloc[0]['latitude'], day_data.iloc[0]['longitude']
         )
         day_log += dist_offset
+    for idx, row in day_data.iterrows():
+        row_position = day_data.index.get_loc(idx)
 
+        if row_position > 0:
+            prev_idx = day_data.index[row_position - 1]
+            prev = day_data.loc[prev_idx]
+            dist = calculate_distance(prev['latitude'], prev['longitude'],
+                                    row['latitude'], row['longitude'])
+            day_log += dist
 
     # Determine if single point map is needed (single measurement) or anchored (no movement)
     if len(day_data) < 2 or day_log <= 0.09:
         single_map = True
     else:
         single_map = False
-
+    
     # Create charts
     pressure_chart = create_pressure_chart(day_data)
     track_map = create_track_map(day_data, single_map=single_map)
