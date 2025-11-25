@@ -463,25 +463,25 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -16.35116,
-          28.16583
+          -16.37167,
+          28.10082
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "25.11.2025",
-        "timestamp_utc": "2025-11-25T22:53:09+00:00",
-        "cog": 193.1,
-        "sog": 6.3,
+        "timestamp_utc": "2025-11-25T23:31:56+00:00",
+        "cog": 195.0,
+        "sog": 6.6,
         "navigational_status": 8,
-        "wetterzustand": "Leichter Spr\u00fchregen",
-        "luftdruck": 1022.5,
-        "windrichtung": 47.0,
+        "wetterzustand": "Bedeckt",
+        "luftdruck": 1022.3,
+        "windrichtung": 49.0,
         "windstaerke": 14.3,
         "bewoelkung": 98.0,
-        "lufttemperatur": 19.0,
+        "lufttemperatur": 18.8,
         "wassertemperatur": 22.1,
-        "niederschlag": 0.1,
+        "niederschlag": 0.0,
         "wellenhoehe": 0.72
       }
     }
