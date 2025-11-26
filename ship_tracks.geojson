@@ -2625,14 +2625,18 @@
           [
             -16.9,
             26.7
+          ],
+          [
+            -16.9,
+            26.7
           ]
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "start_time": "2025-10-17T08:39:46+00:00",
-        "end_time": "2025-11-26T16:03:31+00:00",
-        "total_points": 655,
+        "end_time": "2025-11-26T16:55:51+00:00",
+        "total_points": 656,
         "track_type": "AIS_position_reports"
       }
     }
