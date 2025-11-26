@@ -1566,7 +1566,7 @@ def needs_update(pdf_path, csv_file):
         print("Could not extract dates from PDF, regenerating completely")
         return True, None, None
 
-    # Get yesterday's date
+    # Get yesterday's date (00:00:00)
     yesterday = (datetime.now() - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
     # Check if PDF is up to date (end date should be at least yesterday)
@@ -1577,11 +1577,18 @@ def needs_update(pdf_path, csv_file):
     # PDF needs updating - determine missing date range
     missing_start = pdf_end + timedelta(days=1)  # Start from day after last PDF date
 
-    # Load CSV to find actual last date in data
+    # Load CSV to find actual last date in data, but only up to yesterday
     df = pd.read_csv(csv_file)
     df['timestamp_utc'] = pd.to_datetime(df['timestamp_utc'], utc=True)
-    csv_end_date = df['timestamp_utc'].max()
 
+    # Filter data to only include up to yesterday
+    df_up_to_yesterday = df[df['timestamp_utc'].dt.date <= yesterday.date()]
+
+    if len(df_up_to_yesterday) == 0:
+        print("No data available up to yesterday")
+        return False, None, None
+
+    csv_end_date = df_up_to_yesterday['timestamp_utc'].max()
     missing_end = csv_end_date.replace(hour=0, minute=0, second=0, microsecond=0)
 
     print(f"PDF needs update: missing dates from {missing_start.date()} to {missing_end.date()}")
@@ -1681,6 +1688,7 @@ def generate_or_update_logbook_pdf(csv_file, output_pdf='logbook.pdf',
                                     sailing_img='sailing-boat.png'):
     """
     Generate new logbook PDF or update existing one with missing dates.
+    Only includes data up to yesterday (excludes today).
     """
     # Verify icon files
     if not os.path.exists(anchor_img):
@@ -1697,9 +1705,19 @@ def generate_or_update_logbook_pdf(csv_file, output_pdf='logbook.pdf',
         print("PDF is already up to date. No changes needed.")
         return
 
-    # Read full data
+    # Read full data and filter to yesterday
+    yesterday = (datetime.now() - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
     df = pd.read_csv(csv_file)
     df['timestamp_utc'] = pd.to_datetime(df['timestamp_utc'], utc=True)
+
+    # FILTER: Only include data up to yesterday (exclude today)
+    df = df[df['timestamp_utc'].dt.date <= yesterday.date()]
+
+    if len(df) == 0:
+        print("No data available up to yesterday. Nothing to generate.")
+        return
+
     df['date'] = df['timestamp_utc'].dt.date
     df['time'] = df['timestamp_utc'].dt.strftime('%H:%M')
     df = df.sort_values('timestamp_utc')
