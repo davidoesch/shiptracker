@@ -374,7 +374,7 @@ def get_ship_data_from_scrapesite(ship_id, mmsi, debug=False, headless=False):
             'longitude': round(float(data['LON']), 5),
             'cog': 360 if nav_status == 1 else int(float(data.get('COURSE', 360))),
             'sog': float(data.get('SPEED', 0)),
-            'true_heading': int(float(data.get('HEADING', 511))),
+            'true_heading':511,
             'nav_status': nav_status,
             'shipname': data.get('SHIPNAME', 'Unknown')
         }
