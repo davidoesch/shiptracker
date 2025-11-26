@@ -660,10 +660,10 @@ def get_ship_data_from_har_analysis(ship_id, mmsi, debug=False):
                 'mmsi': mmsi,
                 'latitude': round(coords['lat'], 5),
                 'longitude': round(coords['lon'], 5),
-                'cog': 360,  # is no data value
+                'cog': 370,  # is no data value
                 'sog': 5.5,  # Assuming some movement
                 'true_heading': 511,  # Empty/default
-                'nav_status': 0,  # IN Optione 3 we assume underway
+                'nav_status': 8,  # IN Optione 3 we assume underway
                 'shipname': ' '  # Empty/default
             }
 
