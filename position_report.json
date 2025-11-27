@@ -1,21 +1,21 @@
 {
   "WeatherData": {
     "wetterzustand": "Sonnig",
-    "luftdruck": 1018.5,
-    "windrichtung": 55,
-    "windstaerke": 15.0,
-    "bewoelkung": 19,
-    "lufttemperatur": 21.2,
+    "luftdruck": 977.5,
+    "windrichtung": 336,
+    "windstaerke": 8.7,
+    "bewoelkung": 0,
+    "lufttemperatur": 22.9,
     "niederschlag": 0.0,
-    "wassertemperatur": 23.9,
-    "wellenhoehe": 1.16
+    "wassertemperatur": null,
+    "wellenhoehe": null
   },
-  "timestamp_utc": "2025-11-27T13:14:28+00:00",
+  "timestamp_utc": "2025-11-27T14:09:52+00:00",
   "PositionReport": {
     "Cog": 370,
     "CommunicationState": 999,
-    "Latitude": 26.0,
-    "Longitude": -17.4,
+    "Latitude": 25.0,
+    "Longitude": -12.0,
     "MessageID": 999,
     "NavigationalStatus": 8,
     "PositionAccuracy": true,
@@ -34,8 +34,8 @@
     "MMSI": "244528000",
     "MMSI_String": "244528000",
     "ShipName": " ",
-    "latitude": 26.0,
-    "longitude": -17.4,
-    "time_utc": "2025-11-27T13:14:28+00:00"
+    "latitude": 25.0,
+    "longitude": -12.0,
+    "time_utc": "2025-11-27T14:09:52+00:00"
   }
 }
