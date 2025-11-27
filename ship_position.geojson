@@ -524,19 +524,19 @@
       "properties": {
         "mmsi": 244528000,
         "date": "27.11.2025",
-        "timestamp_utc": "2025-11-27T11:41:31+00:00",
+        "timestamp_utc": "2025-11-27T12:03:11+00:00",
         "cog": 370.0,
         "sog": 5.5,
         "navigational_status": 8,
         "wetterzustand": "Sonnig",
-        "luftdruck": 1019.3,
-        "windrichtung": 39.0,
-        "windstaerke": 12.5,
+        "luftdruck": 1019.1,
+        "windrichtung": 41.0,
+        "windstaerke": 13.8,
         "bewoelkung": 2.0,
-        "lufttemperatur": 21.1,
+        "lufttemperatur": 21.2,
         "wassertemperatur": 23.8,
         "niederschlag": 0.0,
-        "wellenhoehe": 1.04
+        "wellenhoehe": 1.08
       }
     }
   ]
