@@ -1007,7 +1007,7 @@ async def main():
             debug=True,  # Enable debug output
             headless=False  # Show browser window
         )
-    ship_data = None
+ 
     # OPTION 3: If scraping fails, try HAR analysis
     if ship_data is None:
         print("=" * 60)
