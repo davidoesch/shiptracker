@@ -1,11 +1,11 @@
 {
   "WeatherData": {
-    "wetterzustand": "Sonnig",
-    "luftdruck": 1018.0,
-    "windrichtung": 36,
-    "windstaerke": 17.8,
-    "bewoelkung": 1,
-    "lufttemperatur": 21.7,
+    "wetterzustand": "\u00dcberwiegend klar",
+    "luftdruck": 1018.2,
+    "windrichtung": 38,
+    "windstaerke": 15.6,
+    "bewoelkung": 34,
+    "lufttemperatur": 21.6,
     "niederschlag": 0.0,
     "wassertemperatur": 23.8,
     "wellenhoehe": 1.26
