@@ -1,14 +1,14 @@
 {
   "WeatherData": {
     "wetterzustand": "Sonnig",
-    "luftdruck": 1017.2,
-    "windrichtung": 42,
-    "windstaerke": 31.9,
-    "bewoelkung": 15,
+    "luftdruck": 1017.3,
+    "windrichtung": 43,
+    "windstaerke": 31.6,
+    "bewoelkung": 7,
     "lufttemperatur": 22.1,
     "niederschlag": 0.0,
     "wassertemperatur": 23.8,
-    "wellenhoehe": 1.38
+    "wellenhoehe": 1.44
   },
   "timestamp_utc": "2025-11-26T23:21:14+00:00",
   "PositionReport": {
