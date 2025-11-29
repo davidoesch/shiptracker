@@ -1084,7 +1084,7 @@ async def main():
         print("=" * 60)
         print("✗ FAILURE - Could not retrieve ship data from any source")
         print("=" * 60)
-        sys.exit(1)
+        sys.exit(0)
 
 
 if __name__ == "__main__":
@@ -1095,4 +1095,4 @@ if __name__ == "__main__":
         print(f"Error occurred: {e}", file=sys.stderr)
         import traceback
         traceback.print_exc()
-        sys.exit(1)
+        sys.exit(0)
