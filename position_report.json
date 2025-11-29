@@ -2,15 +2,15 @@
   "WeatherData": {
     "wetterzustand": "Sonnig",
     "luftdruck": 1017.2,
-    "windrichtung": 32,
-    "windstaerke": 25.1,
-    "bewoelkung": 6,
+    "windrichtung": 26,
+    "windstaerke": 25.3,
+    "bewoelkung": 7,
     "lufttemperatur": 21.8,
     "niederschlag": 0.0,
     "wassertemperatur": 23.7,
-    "wellenhoehe": 1.54
+    "wellenhoehe": 1.64
   },
-  "timestamp_utc": "2025-11-29T05:45:44+00:00",
+  "timestamp_utc": "2025-11-29T06:03:13+00:00",
   "PositionReport": {
     "Cog": 370,
     "CommunicationState": 999,
@@ -36,6 +36,6 @@
     "ShipName": " ",
     "latitude": 26.0,
     "longitude": -17.4,
-    "time_utc": "2025-11-29T05:45:44+00:00"
+    "time_utc": "2025-11-29T06:03:13+00:00"
   }
 }
