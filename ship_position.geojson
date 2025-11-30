@@ -544,23 +544,23 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -23.95505,
-          18.2997
+          -23.96658,
+          18.2793
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "30.11.2025",
-        "timestamp_utc": "2025-11-30T16:47:26+00:00",
-        "cog": 222.0,
-        "sog": 6.5,
+        "timestamp_utc": "2025-11-30T17:01:25+00:00",
+        "cog": 201.0,
+        "sog": 5.5,
         "navigational_status": 0,
         "wetterzustand": "Bedeckt",
         "luftdruck": 1011.7,
-        "windrichtung": 53.0,
-        "windstaerke": 26.7,
-        "bewoelkung": 99.0,
-        "lufttemperatur": 23.0,
+        "windrichtung": 52.0,
+        "windstaerke": 26.4,
+        "bewoelkung": 89.0,
+        "lufttemperatur": 23.1,
         "wassertemperatur": 24.8,
         "niederschlag": 0.0,
         "wellenhoehe": 1.9
