@@ -357,11 +357,30 @@ def get_ship_data_from_scrapesite(ship_id, mmsi, debug=False, headless=False):
 
         # Parse timestamp
         timestamp_str = data.get('TIMESTAMP', datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'))
+        timestamp_str = data.get('TIMESTAMP')
+        if timestamp_str is None:
+            print(f"No Timestamp found or invalid format: {timestamp_str}")
+            return None
+        #Convert to datetime object UTC
         try:
             dt = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
             dt = dt.replace(tzinfo=timezone.utc)
         except:
-            dt = datetime.now(timezone.utc)
+            print(f"No Timestamp found or invalid format: {timestamp_str}")
+            return None
+
+        #Check if timestamp is older than 4 hours
+        try:
+            current_time = datetime.now(timezone.utc)
+            time_diff = current_time - dt
+
+            if time_diff > timedelta(hours=4):
+                print(f"Scraping Timestamp is older than 4 hours: {timestamp_str}")
+                return None  # or handle as needed
+        except ValueError:
+            print(f"No Timestamp found or invalid format: {timestamp_str}")
+            return None
+
 
         # Determine navigational status (0 = underway, 1 = stopped/anchored)
         speed = float(data.get('SPEED', 0))
@@ -407,29 +426,11 @@ def setup_driver_with_performance_log():
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-blink-features=AutomationControlled')
-    
-    # Add these aggressive cache-busting options
-    options.add_argument('--disable-application-cache')
-    options.add_argument('--disable-cache')
-    options.add_argument('--disk-cache-size=0')
-    options.add_argument('--media-cache-size=0')
-    options.add_argument('--disable-offline-load-stale-cache')
-    options.add_argument('--aggressive-cache-discard')
-    
-    # Disable service workers that might cache data
-    options.add_experimental_option('prefs', {
-        'profile.default_content_setting_values.notifications': 2,
-        'profile.managed_default_content_settings.images': 1
-    })
 
     driver = uc.Chrome(options=options)
-    
-    # Enable Network domain for cache control
-    driver.execute_cdp_cmd('Network.enable', {})
-    driver.execute_cdp_cmd('Network.setCacheDisabled', {'cacheDisabled': True})
-    
-    print("✓ Browser started with Performance Logging and aggressive cache disabled")
+    print("✓ Browser started with Performance Logging")
     return driver
+
 
 def convert_performance_log_to_har(performance_log, debug=False):
     """Convert Chrome Performance Log to HAR format."""
@@ -585,99 +586,72 @@ def analyze_har_for_coordinates(har_data, ship_id, debug=False):
         print("✗ No centerx/centery coordinates found in HAR")
         return None
 
+
 def get_ship_data_from_har_analysis(ship_id, mmsi, debug=False):
+    """
+    Extract ship coordinates using HAR analysis method.
+
+    Args:
+        ship_id: MarineTraffic ship ID
+        mmsi: Ship MMSI number
+        debug: Enable debug output
+
+    Returns:
+        dict: Ship data with keys: timestamp_utc, mmsi, latitude, longitude,
+              cog, sog, true_heading, nav_status, shipname (most empty/default values)
+        None: If extraction fails
+    """
     driver = setup_driver_with_performance_log()
 
     try:
         map_url = f"https://www.marinetraffic.com/en/ais/home/shipid:{ship_id}/zoom:10"
 
         print(f"\n{'='*70}")
-        print(f"HAR Export with Hard Reload - Cache Bypass Mode")
+        print(f"HAR Export with Reload - Exact Manual Process")
         print(f"{'='*70}")
         print(f"Ship ID: {ship_id}\n")
 
-        # Step 0: Clear everything including service workers
-        print(f"Step 0: Clearing browser cache, storage, and service workers...")
+        # Clear browser cache and storage
+        print(f"Step 0: Clearing browser cache and storage...")
         driver.execute_cdp_cmd('Network.enable', {})
         driver.execute_cdp_cmd('Network.clearBrowserCache', {})
         driver.execute_cdp_cmd('Network.clearBrowserCookies', {})
-        driver.execute_cdp_cmd('Network.setCacheDisabled', {'cacheDisabled': True})
-        
-        # Navigate to blank page first to clear any state
-        driver.get("about:blank")
+
+        driver.get("https://www.marinetraffic.com")
         time.sleep(1)
-        
-        # Clear all storage
+
         driver.execute_script("""
-            // Clear all storage types
             localStorage.clear();
             sessionStorage.clear();
-            
-            // Clear IndexedDB
             indexedDB.databases().then(dbs => {
                 dbs.forEach(db => {
                     indexedDB.deleteDatabase(db.name);
                 });
             });
-            
-            // Unregister service workers
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(registrations => {
-                    registrations.forEach(registration => {
-                        registration.unregister();
-                    });
-                });
-            }
-            
-            // Clear caches API
-            if ('caches' in window) {
-                caches.keys().then(names => {
-                    names.forEach(name => {
-                        caches.delete(name);
-                    });
-                });
-            }
         """)
-        
-        print(f"✓ Browser cache, storage, and service workers cleared\n")
 
-        # Step 1: Initial load
-        print(f"Step 1: Initial page load...")
+        print(f"✓ Browser cache and storage cleared\n")
+
+        # Load page
+        print(f"Step 1-2: Loading page (Network capture active)...")
         print(f"URL: {map_url}")
         driver.get(map_url)
         time.sleep(3)
         print(f"✓ Page loaded\n")
 
-        # Step 2: Handle cookies
-        print(f"Step 2: Clicking Cookie Accept...")
+        # Handle cookies
+        print(f"Step 3: Clicking Cookie Accept...")
         handle_cookie_consent(driver, debug=True)
         time.sleep(2)
         print(f"✓ Cookie accepted\n")
 
-        # Step 3: HARD RELOAD with cache bypass (Ctrl+Shift+R equivalent)
-        print(f"Step 3: Performing HARD RELOAD (cache bypass)...")
-        driver.execute_cdp_cmd('Page.reload', {'ignoreCache': True})
+        # Reload page
+        print(f"Step 4: RELOADING page (this captures fresh network traffic)...")
+        driver.refresh()
         time.sleep(5)
-        print(f"✓ Hard reload completed\n")
-        
-        # Step 4: Wait for dynamic content and potential AJAX calls
-        print(f"Step 4: Waiting for dynamic content to load...")
-        time.sleep(3)
-        
-        # Try to trigger map interaction to force fresh data load
-        try:
-            driver.execute_script("""
-                // Try to trigger map pan/zoom to force data reload
-                const event = new Event('resize');
-                window.dispatchEvent(event);
-            """)
-            time.sleep(2)
-        except:
-            pass
-        
-        print(f"✓ Dynamic content loaded\n")
+        print(f"✓ Page reloaded\n")
 
-        # Step 5: Export HAR
+        # Export HAR
         print(f"Step 5: Exporting HAR (retrieving Performance Log)...")
         performance_log = driver.get_log('performance')
         print(f"✓ Retrieved {len(performance_log)} performance log entries\n")
@@ -697,6 +671,7 @@ def get_ship_data_from_har_analysis(ship_id, mmsi, debug=False):
         coords = analyze_har_for_coordinates(har_data, ship_id, debug=debug)
 
         if coords:
+            # Create ship_data dict with coordinates and empty/default values
             current_time = datetime.now(timezone.utc).replace(microsecond=0)
 
             ship_data = {
@@ -704,17 +679,18 @@ def get_ship_data_from_har_analysis(ship_id, mmsi, debug=False):
                 'mmsi': mmsi,
                 'latitude': round(coords['lat'], 5),
                 'longitude': round(coords['lon'], 5),
-                'cog': 370,
-                'sog': 5.5,
-                'true_heading': 511,
-                'nav_status': 8,
-                'shipname': ' '
+                'cog': 370,  # is no data value
+                'sog': 5.5,  # Assuming some movement
+                'true_heading': 511,  # Empty/default
+                'nav_status': 8,  # IN Optione 3 we assume underway
+                'shipname': ' '  # Empty/default
             }
 
             print(f"✓ HAR analysis successful for MMSI {mmsi}")
             try:
                 if os.path.exists(har_filename):
                     os.remove(har_filename)
+
             except Exception as e:
                 print(f"Could not delete HAR file {har_filename}: {e}")
             return ship_data
@@ -733,8 +709,6 @@ def get_ship_data_from_har_analysis(ship_id, mmsi, debug=False):
     finally:
         print(f"\nClosing browser...")
         driver.quit()
-
-
 
 
 # ============================================================================
@@ -1052,18 +1026,18 @@ async def main():
             debug=True,  # Enable debug output
             headless=False  # Show browser window
         )
-    ship_data = None
-    # OPTION 3: If scraping fails, try HAR analysis
-    if ship_data is None:
-        print("=" * 60)
-        print("OPTION 3: Attempting HAR Analysis...")
-        print("=" * 60)
 
-        ship_data = get_ship_data_from_har_analysis(
-            ship_id=ship_id,
-            mmsi=mmsi,
-            debug=True
-        )
+    # # OPTION 3: If scraping fails, try HAR analysis, uncomment to enable, doe snot work reliably
+    # if ship_data is None:
+    #     print("=" * 60)
+    #     print("OPTION 3: Attempting HAR Analysis...")
+    #     print("=" * 60)
+
+    #     ship_data = get_ship_data_from_har_analysis(
+    #         ship_id=ship_id,
+    #         mmsi=mmsi,
+    #         debug=True
+    #     )
     # Process and save if we got data
     if ship_data:
         success, latest_entry_time, latest_entry, weather_data = await process_and_save_ship_data(
@@ -1095,4 +1069,4 @@ if __name__ == "__main__":
         print(f"Error occurred: {e}", file=sys.stderr)
         import traceback
         traceback.print_exc()
-        sys.exit(0)
+        sys.exit(1)
