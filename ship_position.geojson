@@ -538,6 +538,60 @@
         "niederschlag": 0.0,
         "wellenhoehe": 0.98
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -24.24952,
+          17.65686
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "30.11.2025",
+        "timestamp_utc": "2025-11-30T23:57:26+00:00",
+        "cog": 178.0,
+        "sog": 6.0,
+        "navigational_status": 0,
+        "wetterzustand": "Bedeckt",
+        "luftdruck": 1013.1,
+        "windrichtung": 44.0,
+        "windstaerke": 29.8,
+        "bewoelkung": 100.0,
+        "lufttemperatur": 24.0,
+        "wassertemperatur": 25.0,
+        "niederschlag": 0.0,
+        "wellenhoehe": 1.84
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -24.99721,
+          16.88222
+        ]
+      },
+      "properties": {
+        "mmsi": 244528000,
+        "date": "01.12.2025",
+        "timestamp_utc": "2025-12-01T18:04:54+00:00",
+        "cog": 144.0,
+        "sog": 1.0,
+        "navigational_status": 0,
+        "wetterzustand": "Bedeckt",
+        "luftdruck": 1012.3,
+        "windrichtung": 71.0,
+        "windstaerke": 6.5,
+        "bewoelkung": 100.0,
+        "lufttemperatur": 25.9,
+        "wassertemperatur": 24.5,
+        "niederschlag": 0.0,
+        "wellenhoehe": 1.18
+      }
     }
   ]
 }
