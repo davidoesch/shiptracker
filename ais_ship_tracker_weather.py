@@ -587,7 +587,7 @@ def analyze_har_for_coordinates(har_data, ship_id, debug=False):
         return None
 
 
-def get_ship_data_from_har_analysis(ship_id, mmsi, debug=False):
+def get_ship_data_from_har_analysis(ship_id, mmsi, latest_entry_lat, latest_entry_lon, debug=False):
     """
     Extract ship coordinates using HAR analysis method.
 
@@ -604,7 +604,7 @@ def get_ship_data_from_har_analysis(ship_id, mmsi, debug=False):
     driver = setup_driver_with_performance_log()
 
     try:
-        map_url = f"https://www.marinetraffic.com/en/ais/home/shipid:{ship_id}/zoom:10"
+        map_url = f"https://www.marinetraffic.com/en/ais/home/shipid:{ship_id}/zoom:3"
 
         print(f"\n{'='*70}")
         print(f"HAR Export with Reload - Exact Manual Process")
@@ -674,26 +674,31 @@ def get_ship_data_from_har_analysis(ship_id, mmsi, debug=False):
             # Create ship_data dict with coordinates and empty/default values
             current_time = datetime.now(timezone.utc).replace(microsecond=0)
 
-            ship_data = {
-                'timestamp_utc': current_time.isoformat(),
-                'mmsi': mmsi,
-                'latitude': round(coords['lat'], 5),
-                'longitude': round(coords['lon'], 5),
-                'cog': 370,  # is no data value
-                'sog': 5.5,  # Assuming some movement
-                'true_heading': 511,  # Empty/default
-                'nav_status': 8,  # IN Optione 3 we assume underway
-                'shipname': ' '  # Empty/default
-            }
+            if latest_entry_lat != coords['lat'] and latest_entry_lon != coords['lon']:
+               #We have new  poor coordinates
+                ship_data = {
+                    'timestamp_utc': current_time.isoformat(),
+                    'mmsi': mmsi,
+                    'latitude': round(coords['lat'], 5),
+                    'longitude': round(coords['lon'], 5),
+                    'cog': 370,  # is no data value
+                    'sog': 5.5,  # Assuming some movement
+                    'true_heading': 511,  # Empty/default
+                    'nav_status': 8,  # IN Optione 3 we assume underway
+                    'shipname': ' '  # Empty/default
+                }
 
-            print(f"✓ HAR analysis successful for MMSI {mmsi}")
-            try:
-                if os.path.exists(har_filename):
-                    os.remove(har_filename)
-
-            except Exception as e:
-                print(f"Could not delete HAR file {har_filename}: {e}")
-            return ship_data
+                print(f"✓ HAR analysis successful for MMSI {mmsi}")
+                try:
+                    if os.path.exists(har_filename):
+                        os.remove(har_filename)
+                except Exception as e:
+                    print(f"Could not delete HAR file {har_filename}: {e}")
+                return ship_data
+            else:
+                print(f"✓ HAR coordinates are the same as latest entry for MMSI {mmsi}. No update needed.")
+                ship_data = None
+                return ship_data
         else:
             print(f"\nℹ HAR file saved for manual inspection: {har_filename}")
             return None
@@ -989,6 +994,9 @@ async def main():
                 df['timestamp_utc'] = df['timestamp_utc'].apply(parse_timestamp_with_tz)
                 latest_entry = df.loc[df['timestamp_utc'].idxmax()]
                 latest_entry_time = latest_entry['timestamp_utc']
+                latest_entry_lat = float(latest_entry['latitude'])
+                latest_entry_lon = float(latest_entry['longitude'])
+
                 print(f"Latest entry in CSV: {latest_entry_time}")
         except Exception as e:
             print(f"Error reading existing CSV: {e}")
@@ -1027,17 +1035,19 @@ async def main():
             headless=False  # Show browser window
         )
 
-    # # OPTION 3: If scraping fails, try HAR analysis, uncomment to enable, doe snot work reliably
-    # if ship_data is None:
-    #     print("=" * 60)
-    #     print("OPTION 3: Attempting HAR Analysis...")
-    #     print("=" * 60)
+    # OPTION 3: If scraping fails, try HAR analysis, uncomment to enable, doe snot work reliably
+    if ship_data is None:
+        print("=" * 60)
+        print("OPTION 3: Attempting HAR Analysis...")
+        print("=" * 60)
 
-    #     ship_data = get_ship_data_from_har_analysis(
-    #         ship_id=ship_id,
-    #         mmsi=mmsi,
-    #         debug=True
-    #     )
+        ship_data = get_ship_data_from_har_analysis(
+            ship_id=ship_id,
+            mmsi=mmsi,
+            latest_entry_lat=latest_entry_lat if latest_entry_time else None,
+            latest_entry_lon=latest_entry_lon if latest_entry_time else None,
+            debug=True
+        )
     # Process and save if we got data
     if ship_data:
         success, latest_entry_time, latest_entry, weather_data = await process_and_save_ship_data(
