@@ -571,26 +571,26 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -24.34029,
-          17.25869
+          -24.34821,
+          17.17384
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "01.12.2025",
-        "timestamp_utc": "2025-12-01T04:13:27+00:00",
-        "cog": 178.0,
-        "sog": 5.8,
+        "timestamp_utc": "2025-12-01T05:07:16+00:00",
+        "cog": 189.0,
+        "sog": 5.9,
         "navigational_status": 0,
         "wetterzustand": "Bedeckt",
-        "luftdruck": 1011.7,
-        "windrichtung": 45.0,
+        "luftdruck": 1011.4,
+        "windrichtung": 46.0,
         "windstaerke": 29.8,
-        "bewoelkung": 93.0,
+        "bewoelkung": 98.0,
         "lufttemperatur": 23.9,
         "wassertemperatur": 25.0,
         "niederschlag": 0.0,
-        "wellenhoehe": 1.9
+        "wellenhoehe": 1.88
       }
     }
   ]
