@@ -571,23 +571,23 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -24.99626,
-          16.88092
+          -24.99655,
+          16.88169
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "01.12.2025",
-        "timestamp_utc": "2025-12-01T11:07:45+00:00",
-        "cog": 187.0,
-        "sog": 0.6,
+        "timestamp_utc": "2025-12-01T11:39:25+00:00",
+        "cog": 341.0,
+        "sog": 3.9,
         "navigational_status": 0,
         "wetterzustand": "Teilweise bew\u00f6lkt",
-        "luftdruck": 1014.6,
-        "windrichtung": 69.0,
-        "windstaerke": 7.0,
+        "luftdruck": 1014.4,
+        "windrichtung": 73.0,
+        "windstaerke": 6.0,
         "bewoelkung": 78.0,
-        "lufttemperatur": 25.6,
+        "lufttemperatur": 26.1,
         "wassertemperatur": 24.5,
         "niederschlag": 0.0,
         "wellenhoehe": 0.98
