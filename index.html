@@ -138,8 +138,23 @@
                     iconAnchor: [12, 12],
                     popupAnchor: [0, -12]
                 });
+            } else if (cog === 370) {
+                // Kreis für fahrendes Schiff ohne Kurs-Info (grün)
+                svgIcon = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" fill="#28a745" stroke="#000" stroke-width="2"/>
+                    </svg>
+                `;
+
+                return L.divIcon({
+                    html: svgIcon,
+                    className: 'ship-icon',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12],
+                    popupAnchor: [0, -12]
+                });
             } else {
-                // Pfeil für fahrendes Schiff
+                // Pfeil für fahrendes Schiff mit Kurs-Info
                 const rotation = cog === 360 ? 0 : cog;
 
                 svgIcon = `
