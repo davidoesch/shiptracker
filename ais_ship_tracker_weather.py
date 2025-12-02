@@ -184,7 +184,8 @@ def setup_driver(headless=True):
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-blink-features=AutomationControlled')
 
-    driver = uc.Chrome(options=options)
+    driver = uc.Chrome(options=options, version_main=None, use_subprocess=True)
+    driver.implicitly_wait(10)  # Optional: wait for elements to load
     return driver
 
 
@@ -427,7 +428,8 @@ def setup_driver_with_performance_log():
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-blink-features=AutomationControlled')
 
-    driver = uc.Chrome(options=options)
+    driver = uc.Chrome(options=options, version_main=None, use_subprocess=True)
+    driver.implicitly_wait(10)  # Optional: wait for elements to load
     print("✓ Browser started with Performance Logging")
     return driver
 
