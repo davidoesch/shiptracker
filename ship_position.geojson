@@ -592,33 +592,6 @@
         "niederschlag": 0.0,
         "wellenhoehe": 1.24
       }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -25.0,
-          16.9
-        ]
-      },
-      "properties": {
-        "mmsi": 244528000,
-        "date": "03.12.2025",
-        "timestamp_utc": "2025-12-03T09:50:05+00:00",
-        "cog": 370.0,
-        "sog": 5.5,
-        "navigational_status": 8,
-        "wetterzustand": "Sonnig",
-        "luftdruck": 1016.5,
-        "windrichtung": 60.0,
-        "windstaerke": 7.1,
-        "bewoelkung": 0.0,
-        "lufttemperatur": 22.9,
-        "wassertemperatur": 24.9,
-        "niederschlag": 0.0,
-        "wellenhoehe": 0.78
-      }
     }
   ]
 }
