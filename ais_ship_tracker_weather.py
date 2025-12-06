@@ -606,7 +606,7 @@ def get_ship_data_from_har_analysis(ship_id, mmsi, latest_entry_lat, latest_entr
     driver = setup_driver_with_performance_log()
 
     try:
-        map_url = f"https://www.marinetraffic.com/en/ais/home/shipid:{ship_id}/zoom:3"
+        map_url = f"https://www.marinetraffic.com/en/ais/home/shipid:{ship_id}/zoom:3?ttzuz"
 
         print(f"\n{'='*70}")
         print(f"HAR Export with Reload - Exact Manual Process")
