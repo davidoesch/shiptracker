@@ -1037,19 +1037,19 @@ async def main():
             headless=False  # Show browser window
         )
 
-    # OPTION 3: If scraping fails, try HAR analysis, uncomment to enable, doe snot work reliably
-    if ship_data is None:
-        print("=" * 60)
-        print("OPTION 3: Attempting HAR Analysis...")
-        print("=" * 60)
+    # # OPTION 3: If scraping fails, try HAR analysis, uncomment to enable, doe snot work reliably
+    # if ship_data is None:
+    #     print("=" * 60)
+    #     print("OPTION 3: Attempting HAR Analysis...")
+    #     print("=" * 60)
 
-        ship_data = get_ship_data_from_har_analysis(
-            ship_id=ship_id,
-            mmsi=mmsi,
-            latest_entry_lat=latest_entry_lat if latest_entry_time else None,
-            latest_entry_lon=latest_entry_lon if latest_entry_time else None,
-            debug=True
-        )
+    #     ship_data = get_ship_data_from_har_analysis(
+    #         ship_id=ship_id,
+    #         mmsi=mmsi,
+    #         latest_entry_lat=latest_entry_lat if latest_entry_time else None,
+    #         latest_entry_lon=latest_entry_lon if latest_entry_time else None,
+    #         debug=True
+    #     )
     # Process and save if we got data
     if ship_data:
         success, latest_entry_time, latest_entry, weather_data = await process_and_save_ship_data(
