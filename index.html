@@ -50,57 +50,6 @@
             color: red;
             font-weight: bold;
         }
-
-        /* Black & White specific styles */
-        body.bw-mode {
-            background: #000;
-        }
-
-        body.bw-mode #map {
-            background: #000;
-        }
-
-        body.bw-mode .leaflet-container {
-            background: #000;
-        }
-
-        body.bw-mode .status-info {
-            background: rgba(0, 0, 0, 0.9) !important;
-            color: #fff !important;
-            border: 2px solid #fff !important;
-        }
-
-        body.bw-mode .ship-popup {
-            color: #fff;
-        }
-
-        body.bw-mode .ship-popup h3 {
-            color: #fff !important;
-            border-bottom: 2px solid #fff;
-        }
-
-        body.bw-mode .ship-popup strong {
-            color: #ccc !important;
-        }
-
-        body.bw-mode .leaflet-popup-content-wrapper {
-            background: rgba(0, 0, 0, 0.95);
-            color: #fff;
-            border: 2px solid #fff;
-        }
-
-        body.bw-mode .leaflet-popup-tip {
-            background: rgba(0, 0, 0, 0.95);
-            border: 2px solid #fff;
-            border-top: none;
-            border-right: none;
-        }
-
-        body.bw-mode #loading {
-            background: rgba(0, 0, 0, 0.9);
-            color: #fff;
-            border: 2px solid #fff;
-        }
     </style>
 </head>
 
@@ -168,12 +117,11 @@
         // Funktion zum Erstellen eines Schiffs-SVG-Icons
         function createShipIcon(cog, color, isMoving) {
             let svgIcon;
-            const strokeColor = currentBasemap === 'blackwhite' ? '#fff' : '#000';
 
             if (!isMoving) {
                 svgIcon = `
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10" fill="${color}" stroke="${strokeColor}" stroke-width="2"/>
+                        <circle cx="12" cy="12" r="10" fill="${color}" stroke="#000" stroke-width="2"/>
                     </svg>
                 `;
 
@@ -187,7 +135,7 @@
             } else if (cog === 370) {
                 svgIcon = `
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10" fill="#28a745" stroke="${strokeColor}" stroke-width="2"/>
+                        <circle cx="12" cy="12" r="10" fill="#28a745" stroke="#000" stroke-width="2"/>
                     </svg>
                 `;
 
@@ -204,7 +152,7 @@
                 svgIcon = `
                     <svg xmlns:xlink="http://www.w3.org/1999/xlink" width="46" height="46" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <rect width="48" height="48" fill="white" fill-opacity="0.01"/>
-                        <g transform="rotate(${rotation - 45} 24 24)" fill="${color}" stroke="${strokeColor}" stroke-width="1.5">
+                        <g transform="rotate(${rotation - 45} 24 24)" fill="${color}" stroke="#000" stroke-width="1">
                             <path d="M42 6L4 20.1383L24 24.0083L29.0052 44L42 6Z"/>
                         </g>
                     </svg>
@@ -219,57 +167,6 @@
                 });
             }
         }
-
-        // Custom Leaflet TileLayer for Black & White
-        L.TileLayer.BlackWhite = L.TileLayer.extend({
-            getTileUrl: function (coords) {
-                // Use Stamen Toner (black and white) as base
-                return `https://tiles.stadiamaps.com/tiles/stamen_toner/{z}/{x}/{y}.png`
-                    .replace('{z}', coords.z)
-                    .replace('{x}', coords.x)
-                    .replace('{y}', coords.y);
-            },
-            
-            createTile: function (coords, done) {
-                const tile = document.createElement('canvas');
-                tile.width = 256;
-                tile.height = 256;
-                
-                const ctx = tile.getContext('2d');
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                
-                img.onload = () => {
-                    // Draw the original tile
-                    ctx.drawImage(img, 0, 0);
-                    
-                    // Get image data
-                    const imageData = ctx.getImageData(0, 0, 256, 256);
-                    const data = imageData.data;
-                    
-                    // Invert colors: white becomes black (ocean), black becomes white (land)
-                    for (let i = 0; i < data.length; i += 4) {
-                        data[i] = 255 - data[i];       // R
-                        data[i + 1] = 255 - data[i + 1]; // G
-                        data[i + 2] = 255 - data[i + 2]; // B
-                    }
-                    
-                    ctx.putImageData(imageData, 0, 0);
-                    done(null, tile);
-                };
-                
-                img.onerror = () => {
-                    done(new Error('Failed to load tile'));
-                };
-                
-                img.src = this.getTileUrl(coords);
-                return tile;
-            }
-        });
-
-        L.tileLayer.blackWhite = function (options) {
-            return new L.TileLayer.BlackWhite(null, options);
-        };
 
         // Funktion zum Laden der Schiffsdaten vom Server
         async function loadShipData() {
@@ -318,14 +215,14 @@
             }
         }
 
-        // Globale Variablen
+        // Globale Variablen für Karte und Layer
         let map;
         let shipMarker;
         let trackLayers = [];
         let infoControl;
         let currentShipData = null;
-        let esriImagery, esriLabels, osmPositron, blackWhiteLayer;
-        let currentBasemap = 'satellite';
+        let esriImagery, esriLabels, osmPositron, blackWhiteMap;
+        let currentBasemap = 'satellite'; // 'satellite', 'osm', or 'blackwhite'
         let positionMarkers = [];
         let positionsData = null;
 
@@ -335,10 +232,11 @@
             return {
                 popupzoom: params.get('popupzoom') !== 'false',
                 zoom: parseInt(params.get('zoom')) || 5,
-                map: params.get('map') || 'satellite'
+                map: params.get('map') || 'satellite' // 'satellite', 'osm', or 'blackwhite'
             };
         }
 
+        // URL-Parameter einmal beim Laden auslesen
         const urlParams = getUrlParameters();
 
         // Funktion zur Konvertierung von Windgeschwindigkeit (km/h) in Beaufort-Skala
@@ -531,19 +429,40 @@
                     maxZoom: 19
                 });
 
-                // Black & White Layer with inverted Stamen Toner
-                blackWhiteLayer = L.tileLayer.blackWhite({
-                    attribution: '© Stadia Maps © Stamen Design © OpenStreetMap',
-                    maxZoom: 19
-                });
+                // Black/White Map mit OpenFreeMap und custom style
+                try {
+                    const styleResponse = await fetch('style_bw.json');
+                    if (styleResponse.ok) {
+                        const style = await styleResponse.json();
+
+                        // OpenFreeMap verwenden mit custom style
+                        blackWhiteMap = L.tileLayer('https://tiles.openfreemap.org/styles/liberty/{z}/{x}/{y}.png', {
+                            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://openfreemap.org">OpenFreeMap</a>',
+                            maxZoom: 19
+                        });
+
+                        console.log('Black/White style erfolgreich geladen');
+                    } else {
+                        console.warn('style_bw.json nicht gefunden, verwende Standard OpenFreeMap');
+                        blackWhiteMap = L.tileLayer('https://tiles.openfreemap.org/styles/liberty/{z}/{x}/{y}.png', {
+                            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://openfreemap.org">OpenFreeMap</a>',
+                            maxZoom: 19
+                        });
+                    }
+                } catch (error) {
+                    console.warn('Fehler beim Laden von style_bw.json:', error);
+                    blackWhiteMap = L.tileLayer('https://tiles.openfreemap.org/styles/liberty/{z}/{x}/{y}.png', {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://openfreemap.org">OpenFreeMap</a>',
+                        maxZoom: 19
+                    });
+                }
 
                 // Basiskarte basierend auf URL-Parameter setzen
                 currentBasemap = urlParams.map;
-                if (currentBasemap === 'blackwhite') {
-                    blackWhiteLayer.addTo(map);
-                    document.body.classList.add('bw-mode');
-                } else if (currentBasemap === 'osm') {
+                if (currentBasemap === 'osm') {
                     osmPositron.addTo(map);
+                } else if (currentBasemap === 'blackwhite') {
+                    blackWhiteMap.addTo(map);
                 } else {
                     esriImagery.addTo(map);
                     esriLabels.addTo(map);
@@ -598,12 +517,13 @@
 
                 const shipColor = getShipColor(posReport.NavigationalStatus, posReport.Cog, posReport.Sog);
                 const shipIcon = createShipIcon(posReport.Cog, shipColor, isMoving);
+
                 const timeSinceUpdate = getTimeSinceUpdate(metaData.time_utc);
                 const windBeaufort = weatherData ? getBeaufortScale(weatherData.windstaerke) : 'Nicht verfügbar';
 
                 const popupContent = `
                     <div class="ship-popup">
-                        <h3 style="margin-top:0;">${metaData.ShipName}</h3>
+                        <h3 style="margin-top:0; color:#2c5aa0;">${metaData.ShipName}</h3>
                         <div class="status-info">
                             <strong>Status:</strong> ${currentStatus}<br>                            
                             <strong>Geschwindigkeit:</strong> ${posReport.Sog} Knoten<br>
@@ -616,7 +536,7 @@
                             <strong>Wellenhöhe:</strong> ${weatherData.wellenhoehe} m<br>
                             ` : '<strong>Wetterdaten:</strong> Nicht verfügbar<br>'}
                             <strong>Letztes Update:</strong> vor ${timeSinceUpdate}<br>
-                            <strong>Logbuch (PDF):</strong> <a href="https://github.com/davidoesch/shiptracker/raw/main/nautical_logbook.pdf" download="nautical_logbook.pdf" style="color:${currentBasemap === 'blackwhite' ? '#4fc3f7' : '#2c5aa0'}; text-decoration:underline;">PDF herunterladen</a>
+                            <strong>Logbuch (PDF):</strong> <a href="https://github.com/davidoesch/shiptracker/raw/main/nautical_logbook.pdf" download="nautical_logbook.pdf" style="color:#2c5aa0; text-decoration:underline;">PDF herunterladen</a>
                         </div>
                     </div>
                 `;
@@ -650,14 +570,7 @@
                         ` : 'Wetter: Nicht verfügbar<br>'}
                         Update: vor ${timeSinceUpdate}
                     `;
-                    if (currentBasemap === 'blackwhite') {
-                        div.style.background = 'rgba(0,0,0,0.9)';
-                        div.style.color = '#fff';
-                        div.style.border = '2px solid #fff';
-                    } else {
-                        div.style.background = 'rgba(255,255,255,0.95)';
-                        div.style.color = '#000';
-                    }
+                    div.style.background = 'rgba(255,255,255,0.95)';
                     div.style.padding = '10px';
                     div.style.borderRadius = '5px';
                     div.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
