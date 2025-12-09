@@ -51,50 +51,55 @@
             font-weight: bold;
         }
 
-        /* Black & White Map Styling */
-        .bw-map {
+        /* Black & White specific styles */
+        body.bw-mode {
             background: #000;
         }
 
-        .bw-map .leaflet-container {
+        body.bw-mode #map {
             background: #000;
         }
 
-        .bw-map .status-info {
+        body.bw-mode .leaflet-container {
+            background: #000;
+        }
+
+        body.bw-mode .status-info {
             background: rgba(0, 0, 0, 0.9) !important;
             color: #fff !important;
             border: 2px solid #fff !important;
         }
 
-        .bw-map .ship-popup {
+        body.bw-mode .ship-popup {
             color: #fff;
         }
 
-        .bw-map .ship-popup h3 {
+        body.bw-mode .ship-popup h3 {
             color: #fff !important;
             border-bottom: 2px solid #fff;
         }
 
-        .bw-map .ship-popup strong {
+        body.bw-mode .ship-popup strong {
             color: #ccc !important;
         }
 
-        .bw-map .leaflet-popup-content-wrapper {
+        body.bw-mode .leaflet-popup-content-wrapper {
             background: rgba(0, 0, 0, 0.95);
             color: #fff;
             border: 2px solid #fff;
         }
 
-        .bw-map .leaflet-popup-tip {
+        body.bw-mode .leaflet-popup-tip {
             background: rgba(0, 0, 0, 0.95);
             border: 2px solid #fff;
             border-top: none;
             border-right: none;
         }
 
-        /* Custom Black & White Tile Layer Filter */
-        .bw-tiles {
-            filter: grayscale(100%) invert(100%) contrast(150%);
+        body.bw-mode #loading {
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            border: 2px solid #fff;
         }
     </style>
 </head>
@@ -214,6 +219,57 @@
                 });
             }
         }
+
+        // Custom Leaflet TileLayer for Black & White
+        L.TileLayer.BlackWhite = L.TileLayer.extend({
+            getTileUrl: function (coords) {
+                // Use Stamen Toner (black and white) as base
+                return `https://tiles.stadiamaps.com/tiles/stamen_toner/{z}/{x}/{y}.png`
+                    .replace('{z}', coords.z)
+                    .replace('{x}', coords.x)
+                    .replace('{y}', coords.y);
+            },
+            
+            createTile: function (coords, done) {
+                const tile = document.createElement('canvas');
+                tile.width = 256;
+                tile.height = 256;
+                
+                const ctx = tile.getContext('2d');
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                
+                img.onload = () => {
+                    // Draw the original tile
+                    ctx.drawImage(img, 0, 0);
+                    
+                    // Get image data
+                    const imageData = ctx.getImageData(0, 0, 256, 256);
+                    const data = imageData.data;
+                    
+                    // Invert colors: white becomes black (ocean), black becomes white (land)
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = 255 - data[i];       // R
+                        data[i + 1] = 255 - data[i + 1]; // G
+                        data[i + 2] = 255 - data[i + 2]; // B
+                    }
+                    
+                    ctx.putImageData(imageData, 0, 0);
+                    done(null, tile);
+                };
+                
+                img.onerror = () => {
+                    done(new Error('Failed to load tile'));
+                };
+                
+                img.src = this.getTileUrl(coords);
+                return tile;
+            }
+        });
+
+        L.tileLayer.blackWhite = function (options) {
+            return new L.TileLayer.BlackWhite(null, options);
+        };
 
         // Funktion zum Laden der Schiffsdaten vom Server
         async function loadShipData() {
@@ -475,20 +531,17 @@
                     maxZoom: 19
                 });
 
-                // Black & White Layer - using dark CartoDB with inverted colors
-                blackWhiteLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                    subdomains: 'abcd',
-                    maxZoom: 19,
-                    className: 'bw-tiles',
-                    attribution: '© CARTO © OpenStreetMap'
+                // Black & White Layer with inverted Stamen Toner
+                blackWhiteLayer = L.tileLayer.blackWhite({
+                    attribution: '© Stadia Maps © Stamen Design © OpenStreetMap',
+                    maxZoom: 19
                 });
 
                 // Basiskarte basierend auf URL-Parameter setzen
                 currentBasemap = urlParams.map;
                 if (currentBasemap === 'blackwhite') {
                     blackWhiteLayer.addTo(map);
-                    document.body.classList.add('bw-map');
-                    document.getElementById('map').classList.add('bw-map');
+                    document.body.classList.add('bw-mode');
                 } else if (currentBasemap === 'osm') {
                     osmPositron.addTo(map);
                 } else {
