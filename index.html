@@ -6,9 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Schiffs-Tracker</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js'></script>
-    <link href='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css' rel='stylesheet' />
-    <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.20/leaflet-maplibre-gl.js"></script>
     <style>
         body {
             margin: 0;
@@ -55,28 +52,49 @@
         }
 
         /* Black & White Map Styling */
+        .bw-map {
+            background: #000;
+        }
+
+        .bw-map .leaflet-container {
+            background: #000;
+        }
+
         .bw-map .status-info {
-            background: rgba(0, 0, 0, 0.9);
-            color: #fff;
-            border: 2px solid #fff;
+            background: rgba(0, 0, 0, 0.9) !important;
+            color: #fff !important;
+            border: 2px solid #fff !important;
         }
 
         .bw-map .ship-popup {
             color: #fff;
         }
 
-        .bw-map .ship-popup strong {
-            color: #ccc;
+        .bw-map .ship-popup h3 {
+            color: #fff !important;
+            border-bottom: 2px solid #fff;
         }
 
-        .bw-map .maplibregl-popup-content {
-            background: rgba(0, 0, 0, 0.9);
+        .bw-map .ship-popup strong {
+            color: #ccc !important;
+        }
+
+        .bw-map .leaflet-popup-content-wrapper {
+            background: rgba(0, 0, 0, 0.95);
             color: #fff;
             border: 2px solid #fff;
         }
 
-        .bw-map .maplibregl-popup-tip {
-            border-top-color: #000 !important;
+        .bw-map .leaflet-popup-tip {
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid #fff;
+            border-top: none;
+            border-right: none;
+        }
+
+        /* Custom Black & White Tile Layer Filter */
+        .bw-tiles {
+            filter: grayscale(100%) invert(100%) contrast(150%);
         }
     </style>
 </head>
@@ -457,81 +475,12 @@
                     maxZoom: 19
                 });
 
-                // Black & White Vector Tiles Layer
-                blackWhiteLayer = L.maplibreGL({
-                    style: {
-                        version: 8,
-                        sources: {
-                            'openmaptiles': {
-                                type: 'vector',
-                                tiles: ['https://tiles.openfreemap.org/styles/liberty/{z}/{x}/{y}.pbf'],
-                                attribution: '© OpenFreeMap '
-                            }
-                        },
-                        glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
-                        layers: [
-                            {
-                                id: 'background',
-                                type: 'background',
-                                paint: {
-                                    'background-color': '#000000'
-                                }
-                            },
-                            {
-                                id: 'water',
-                                type: 'fill',
-                                source: 'openmaptiles',
-                                'source-layer': 'water',
-                                paint: {
-                                    'fill-color': '#000000'
-                                }
-                            },
-                            {
-                                id: 'waterway',
-                                type: 'line',
-                                source: 'openmaptiles',
-                                'source-layer': 'waterway',
-                                paint: {
-                                    'line-color': '#222222',
-                                    'line-width': 1
-                                }
-                            },
-                            {
-                                id: 'land-border',
-                                type: 'line',
-                                source: 'openmaptiles',
-                                'source-layer': 'water',
-                                filter: ['==', ['get', 'class'], 'ocean'],
-                                paint: {
-                                    'line-color': '#ffffff',
-                                    'line-width': 1.5
-                                }
-                            },
-                            {
-                                id: 'boundary-country',
-                                type: 'line',
-                                source: 'openmaptiles',
-                                'source-layer': 'boundary',
-                                filter: ['==', ['get', 'admin_level'], 2],
-                                paint: {
-                                    'line-color': '#ffffff',
-                                    'line-width': 2
-                                }
-                            },
-                            {
-                                id: 'boundary-state',
-                                type: 'line',
-                                source: 'openmaptiles',
-                                'source-layer': 'boundary',
-                                filter: ['in', ['get', 'admin_level'], ['literal', [4, 6]]],
-                                paint: {
-                                    'line-color': '#666666',
-                                    'line-width': 1,
-                                    'line-dasharray': [2, 2]
-                                }
-                            }
-                        ]
-                    }
+                // Black & White Layer - using dark CartoDB with inverted colors
+                blackWhiteLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    subdomains: 'abcd',
+                    maxZoom: 19,
+                    className: 'bw-tiles',
+                    attribution: '© CARTO © OpenStreetMap'
                 });
 
                 // Basiskarte basierend auf URL-Parameter setzen
@@ -539,6 +488,7 @@
                 if (currentBasemap === 'blackwhite') {
                     blackWhiteLayer.addTo(map);
                     document.body.classList.add('bw-map');
+                    document.getElementById('map').classList.add('bw-map');
                 } else if (currentBasemap === 'osm') {
                     osmPositron.addTo(map);
                 } else {
@@ -600,7 +550,7 @@
 
                 const popupContent = `
                     <div class="ship-popup">
-                        <h3 style="margin-top:0; color:#2c5aa0;">${metaData.ShipName}</h3>
+                        <h3 style="margin-top:0;">${metaData.ShipName}</h3>
                         <div class="status-info">
                             <strong>Status:</strong> ${currentStatus}<br>                            
                             <strong>Geschwindigkeit:</strong> ${posReport.Sog} Knoten<br>
@@ -613,7 +563,7 @@
                             <strong>Wellenhöhe:</strong> ${weatherData.wellenhoehe} m<br>
                             ` : '<strong>Wetterdaten:</strong> Nicht verfügbar<br>'}
                             <strong>Letztes Update:</strong> vor ${timeSinceUpdate}<br>
-                            <strong>Logbuch (PDF):</strong> <a href="https://github.com/davidoesch/shiptracker/raw/main/nautical_logbook.pdf" download="nautical_logbook.pdf" style="color:#2c5aa0; text-decoration:underline;">PDF herunterladen</a>
+                            <strong>Logbuch (PDF):</strong> <a href="https://github.com/davidoesch/shiptracker/raw/main/nautical_logbook.pdf" download="nautical_logbook.pdf" style="color:${currentBasemap === 'blackwhite' ? '#4fc3f7' : '#2c5aa0'}; text-decoration:underline;">PDF herunterladen</a>
                         </div>
                     </div>
                 `;
@@ -647,9 +597,14 @@
                         ` : 'Wetter: Nicht verfügbar<br>'}
                         Update: vor ${timeSinceUpdate}
                     `;
-                    div.style.background = currentBasemap === 'blackwhite' ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.95)';
-                    div.style.color = currentBasemap === 'blackwhite' ? '#fff' : '#000';
-                    div.style.border = currentBasemap === 'blackwhite' ? '2px solid #fff' : 'none';
+                    if (currentBasemap === 'blackwhite') {
+                        div.style.background = 'rgba(0,0,0,0.9)';
+                        div.style.color = '#fff';
+                        div.style.border = '2px solid #fff';
+                    } else {
+                        div.style.background = 'rgba(255,255,255,0.95)';
+                        div.style.color = '#000';
+                    }
                     div.style.padding = '10px';
                     div.style.borderRadius = '5px';
                     div.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
