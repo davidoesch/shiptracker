@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Schiffs-Tracker</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js'></script>
+    <link href='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css' rel='stylesheet' />
+    <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.20/leaflet-maplibre-gl.js"></script>
     <style>
         body {
             margin: 0;
@@ -50,6 +53,31 @@
             color: red;
             font-weight: bold;
         }
+
+        /* Black & White Map Styling */
+        .bw-map .status-info {
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            border: 2px solid #fff;
+        }
+
+        .bw-map .ship-popup {
+            color: #fff;
+        }
+
+        .bw-map .ship-popup strong {
+            color: #ccc;
+        }
+
+        .bw-map .maplibregl-popup-content {
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            border: 2px solid #fff;
+        }
+
+        .bw-map .maplibregl-popup-tip {
+            border-top-color: #000 !important;
+        }
     </style>
 </head>
 
@@ -82,12 +110,10 @@
         // Funktion zum Berechnen der Zeit seit dem letzten Update
         function getTimeSinceUpdate(utcTimeString) {
             try {
-                // Parse ISO 8601 format with timezone
                 const updateTime = new Date(utcTimeString);
                 const now = new Date();
                 const diffMs = now - updateTime;
 
-                // Convert to appropriate time unit
                 const diffSeconds = Math.floor(diffMs / 1000);
                 const diffMinutes = Math.floor(diffSeconds / 60);
                 const diffHours = Math.floor(diffMinutes / 60);
@@ -110,24 +136,21 @@
 
         // Funktion zum Bestimmen der Schiffsfarbe
         function getShipColor(navStatus, cog, sog) {
-            // Grün wenn unterwegs (nicht vor Anker, Kurs verfügbar, Geschwindigkeit > 0)
             if (navStatus !== 1 && cog !== 360 && sog > 0) {
                 return '#28a745'; // Grün
             }
             return '#fd7e14'; // Orange
         }
 
-
-
         // Funktion zum Erstellen eines Schiffs-SVG-Icons
         function createShipIcon(cog, color, isMoving) {
             let svgIcon;
+            const strokeColor = currentBasemap === 'blackwhite' ? '#fff' : '#000';
 
             if (!isMoving) {
-                // Kreis für gestopptes Schiff
                 svgIcon = `
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10" fill="${color}" stroke="#000" stroke-width="2"/>
+                        <circle cx="12" cy="12" r="10" fill="${color}" stroke="${strokeColor}" stroke-width="2"/>
                     </svg>
                 `;
 
@@ -139,10 +162,9 @@
                     popupAnchor: [0, -12]
                 });
             } else if (cog === 370) {
-                // Kreis für fahrendes Schiff ohne Kurs-Info (grün)
                 svgIcon = `
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10" fill="#28a745" stroke="#000" stroke-width="2"/>
+                        <circle cx="12" cy="12" r="10" fill="#28a745" stroke="${strokeColor}" stroke-width="2"/>
                     </svg>
                 `;
 
@@ -154,13 +176,12 @@
                     popupAnchor: [0, -12]
                 });
             } else {
-                // Pfeil für fahrendes Schiff mit Kurs-Info
                 const rotation = cog === 360 ? 0 : cog;
 
                 svgIcon = `
                     <svg xmlns:xlink="http://www.w3.org/1999/xlink" width="46" height="46" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <rect width="48" height="48" fill="white" fill-opacity="0.01"/>
-                        <g transform="rotate(${rotation - 45} 24 24)" fill="${color}" stroke="#000" stroke-width="1">
+                        <g transform="rotate(${rotation - 45} 24 24)" fill="${color}" stroke="${strokeColor}" stroke-width="1.5">
                             <path d="M42 6L4 20.1383L24 24.0083L29.0052 44L42 6Z"/>
                         </g>
                     </svg>
@@ -223,14 +244,14 @@
             }
         }
 
-        // Globale Variablen für Karte und Layer
+        // Globale Variablen
         let map;
         let shipMarker;
         let trackLayers = [];
         let infoControl;
         let currentShipData = null;
-        let esriImagery, esriLabels, osmPositron;
-        let currentBasemap = 'satellite'; // 'satellite' or 'osm'
+        let esriImagery, esriLabels, osmPositron, blackWhiteLayer;
+        let currentBasemap = 'satellite';
         let positionMarkers = [];
         let positionsData = null;
 
@@ -238,13 +259,12 @@
         function getUrlParameters() {
             const params = new URLSearchParams(window.location.search);
             return {
-                popupzoom: params.get('popupzoom') !== 'false', // default true
-                zoom: parseInt(params.get('zoom')) || 5, // default 5
-                map: params.get('map') || 'satellite' // 'satellite' or 'osm'
+                popupzoom: params.get('popupzoom') !== 'false',
+                zoom: parseInt(params.get('zoom')) || 5,
+                map: params.get('map') || 'satellite'
             };
         }
 
-        // URL-Parameter einmal beim Laden auslesen
         const urlParams = getUrlParameters();
 
         // Funktion zur Konvertierung von Windgeschwindigkeit (km/h) in Beaufort-Skala
@@ -266,7 +286,7 @@
 
         // Funktion zur Berechnung der Distanz zwischen zwei Koordinaten in Seemeilen
         function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 3440.065; // Erdradius in Seemeilen (nautical miles)
+            const R = 3440.065;
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
             const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -284,14 +304,12 @@
                 const [lon2, lat2] = coordinates[i];
                 totalDistance += calculateDistance(lat1, lon1, lat2, lon2);
             }
-            return Math.round(totalDistance * 10) / 10; // Auf eine Dezimalstelle runden
+            return Math.round(totalDistance * 10) / 10;
         }
-
-        // --- START: FUNKTIONEN IN GLOBALEN SCOPE VERSCHOBEN ---
 
         // Funktion zum Anzeigen/Ausblenden der Positionsmarker basierend auf Zoom-Level
         function updatePositionMarkersVisibility() {
-            if (!map) return; // Sicherstellen, dass die Karte initialisiert ist
+            if (!map) return;
             const currentZoom = map.getZoom();
             const shouldShow = currentZoom >= 6 && currentZoom <= 22;
 
@@ -310,16 +328,14 @@
 
         // Funktion zum Laden und Anzeigen der Schiffspositionen
         async function loadAndDisplayPositions() {
-            // --- NEU: Alte Positions-Marker entfernen ---
             if (positionMarkers.length > 0) {
                 positionMarkers.forEach(marker => {
                     if (map.hasLayer(marker)) {
                         map.removeLayer(marker);
                     }
                 });
-                positionMarkers = []; // Array zurücksetzen
+                positionMarkers = [];
             }
-            // --- Ende NEU ---
 
             try {
                 positionsData = await loadShipPositions();
@@ -330,7 +346,6 @@
                             const coords = feature.geometry.coordinates;
                             const props = feature.properties;
 
-                            // Roten Kreis-Marker erstellen
                             const positionIcon = L.divIcon({
                                 html: `
                                     <div style="position: relative;">
@@ -345,7 +360,6 @@
                                 iconAnchor: [6, 6]
                             });
 
-                            // Marker erstellen (GeoJSON verwendet [lon, lat], Leaflet verwendet [lat, lon])
                             const marker = L.marker([coords[1], coords[0]], {
                                 icon: positionIcon
                             });
@@ -354,7 +368,6 @@
                         }
                     });
 
-                    // Initial visibility basierend auf aktuellem Zoom
                     updatePositionMarkersVisibility();
                 }
             } catch (error) {
@@ -362,50 +375,38 @@
             }
         }
 
-        // --- ENDE: FUNKTIONEN IN GLOBALEN SCOPE VERSCHOBEN ---
-
-
         // Funktion zum Laden und Anzeigen der Schiffsspuren
         async function loadAndDisplayTracks() {
-            // --- NEU: Alte Track-Layer entfernen ---
             if (trackLayers.length > 0) {
                 trackLayers.forEach(layer => {
                     if (map.hasLayer(layer)) {
                         map.removeLayer(layer);
                     }
                 });
-                trackLayers = []; // Array zurücksetzen
+                trackLayers = [];
             }
-            // --- Ende NEU ---
 
             try {
                 const tracksData = await loadShipTracks();
 
-                // Schiffsspuren zur Karte hinzufügen (falls geladen)
                 if (tracksData && tracksData.features) {
                     tracksData.features.forEach(feature => {
                         if (feature.geometry && feature.geometry.type === 'LineString') {
-                            // Koordinaten von GeoJSON [lon, lat] zu Leaflet [lat, lon] konvertieren
                             const coordinates = feature.geometry.coordinates.map(coord => [coord[1], coord[0]]);
 
-                            // Track-Informationen aus Properties extrahieren
                             const trackInfo = feature.properties;
                             const startTime = new Date(trackInfo.start_time).toLocaleDateString('de-DE');
                             const endTime = new Date(trackInfo.end_time).toLocaleDateString('de-DE');
 
-
-                            // Länge der Fahrtroute in Seemeilen berechnen
                             const trackLength = calculateTrackLength(feature.geometry.coordinates);
 
-                            // Weiße Linie für die Fahrtroute erstellen
                             const trackLine = L.polyline(coordinates, {
                                 color: 'red',
                                 weight: 3,
                                 opacity: 0.8,
-                                dashArray: '5, 5' // Optional: gestrichelte Linie
+                                dashArray: '5, 5'
                             }).addTo(map);
 
-                            // Popup für die Fahrtroute
                             const trackPopupContent = `
                                 <div class="ship-popup">
                                     <h4 style="margin-top:0; color:#2c5aa0;">Fahrtroute</h4>                                   
@@ -417,7 +418,6 @@
 
                             trackLine.bindPopup(trackPopupContent);
 
-                            // Track-Layer speichern für spätere Updates
                             trackLayers.push(trackLine);
                         }
                     });
@@ -427,67 +427,130 @@
             }
         }
 
-
-        // Funktion zur Karteninitialisierung (nur einmal aufgerufen)
+        // Funktion zur Karteninitialisierung
         async function initializeMap() {
             try {
-                // Schiffsdaten laden
                 currentShipData = await loadShipData();
                 const posReport = currentShipData.PositionReport;
 
-                // Loading-Nachricht entfernen
                 document.getElementById('loading').style.display = 'none';
 
-                // Karte initialisieren und auf Schiffsposition zentrieren
                 map = L.map('map', {
-                    zoomControl: urlParams.popupzoom // Zoom-Controls basierend auf URL-Parameter
+                    zoomControl: urlParams.popupzoom
                 }).setView([posReport.Latitude, posReport.Longitude], urlParams.zoom);
 
                 // Basiskarten definieren
-                // Esri Satellite Imagery
                 esriImagery = L.tileLayer(
                     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
                     attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics',
                     maxZoom: 19
-                }
-                );
+                });
 
-                // Esri Labels overlay (boundaries, roads, places)
                 esriLabels = L.tileLayer(
                     'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
                     attribution: 'Labels &copy; Esri',
                     maxZoom: 19
-                }
-                );
+                });
 
-                // OpenStreetMap POSITRON
                 osmPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-
                     subdomains: 'abcd',
                     maxZoom: 19
                 });
 
+                // Black & White Vector Tiles Layer
+                blackWhiteLayer = L.maplibreGL({
+                    style: {
+                        version: 8,
+                        sources: {
+                            'openmaptiles': {
+                                type: 'vector',
+                                tiles: ['https://tiles.openfreemap.org/styles/liberty/{z}/{x}/{y}.pbf'],
+                                attribution: '© OpenFreeMap '
+                            }
+                        },
+                        glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+                        layers: [
+                            {
+                                id: 'background',
+                                type: 'background',
+                                paint: {
+                                    'background-color': '#000000'
+                                }
+                            },
+                            {
+                                id: 'water',
+                                type: 'fill',
+                                source: 'openmaptiles',
+                                'source-layer': 'water',
+                                paint: {
+                                    'fill-color': '#000000'
+                                }
+                            },
+                            {
+                                id: 'waterway',
+                                type: 'line',
+                                source: 'openmaptiles',
+                                'source-layer': 'waterway',
+                                paint: {
+                                    'line-color': '#222222',
+                                    'line-width': 1
+                                }
+                            },
+                            {
+                                id: 'land-border',
+                                type: 'line',
+                                source: 'openmaptiles',
+                                'source-layer': 'water',
+                                filter: ['==', ['get', 'class'], 'ocean'],
+                                paint: {
+                                    'line-color': '#ffffff',
+                                    'line-width': 1.5
+                                }
+                            },
+                            {
+                                id: 'boundary-country',
+                                type: 'line',
+                                source: 'openmaptiles',
+                                'source-layer': 'boundary',
+                                filter: ['==', ['get', 'admin_level'], 2],
+                                paint: {
+                                    'line-color': '#ffffff',
+                                    'line-width': 2
+                                }
+                            },
+                            {
+                                id: 'boundary-state',
+                                type: 'line',
+                                source: 'openmaptiles',
+                                'source-layer': 'boundary',
+                                filter: ['in', ['get', 'admin_level'], ['literal', [4, 6]]],
+                                paint: {
+                                    'line-color': '#666666',
+                                    'line-width': 1,
+                                    'line-dasharray': [2, 2]
+                                }
+                            }
+                        ]
+                    }
+                });
+
                 // Basiskarte basierend auf URL-Parameter setzen
                 currentBasemap = urlParams.map;
-                if (currentBasemap === 'osm') {
+                if (currentBasemap === 'blackwhite') {
+                    blackWhiteLayer.addTo(map);
+                    document.body.classList.add('bw-map');
+                } else if (currentBasemap === 'osm') {
                     osmPositron.addTo(map);
                 } else {
                     esriImagery.addTo(map);
                     esriLabels.addTo(map);
                 }
 
-                // Schiffsspuren laden und anzeigen
                 await loadAndDisplayTracks();
-
-                // Schiffspositionen laden und anzeigen
                 await loadAndDisplayPositions();
 
-                // --- NEU: Event-Listener HIER EINMALIG setzen ---
-                // (Die Funktionen selbst sind jetzt global)
                 map.on('zoomend', updatePositionMarkersVisibility);
 
-
-                // Schiffsdaten initial anzeigen
                 updateShipDisplay();
 
             } catch (error) {
@@ -502,19 +565,15 @@
             }
         }
 
-        // Funktion zum Aktualisieren der Schiffsdaten (lädt neue Daten vom Server)
+        // Funktion zum Aktualisieren der Schiffsdaten
         async function updateShipData() {
             try {
-                // --- NEU: Auch Tracks und Positionen neu laden ---
                 await loadAndDisplayTracks();
                 await loadAndDisplayPositions();
-                // --- Ende NEU ---
-
                 currentShipData = await loadShipData();
                 updateShipDisplay();
             } catch (error) {
                 console.error('Fehler beim Aktualisieren der Schiffsdaten:', error);
-                // Bei Fehlern die letzten bekannten Daten beibehalten
             }
         }
 
@@ -530,25 +589,15 @@
                 const metaData = currentShipData.MetaData;
                 const weatherData = currentShipData.WeatherData;
 
-
-                // Status bestimmen
                 const statusText = navigationStatus[posReport.NavigationalStatus] || "Unbekannt";
                 const isMoving = posReport.NavigationalStatus !== 1 && posReport.Cog !== 360 && posReport.Sog > 0;
                 const currentStatus = isMoving ? "Unterwegs" : "Gestoppt/Vor Anker";
 
-                // Schiffsfarbe bestimmen
                 const shipColor = getShipColor(posReport.NavigationalStatus, posReport.Cog, posReport.Sog);
-
-                // Schiffs-Icon erstellen - Verwende COG (Course over Ground) für die Rotation
                 const shipIcon = createShipIcon(posReport.Cog, shipColor, isMoving);
-
-                // Zeit seit letztem Update
                 const timeSinceUpdate = getTimeSinceUpdate(metaData.time_utc);
-
-                // Windgeschwindigkeit in Beaufort konvertieren (falls Wetterdaten vorhanden)
                 const windBeaufort = weatherData ? getBeaufortScale(weatherData.windstaerke) : 'Nicht verfügbar';
 
-                // Popup-Inhalt erstellen
                 const popupContent = `
                     <div class="ship-popup">
                         <h3 style="margin-top:0; color:#2c5aa0;">${metaData.ShipName}</h3>
@@ -569,27 +618,22 @@
                     </div>
                 `;
 
-                // Alten Schiffs-Marker entfernen, falls vorhanden
                 if (shipMarker) {
                     map.removeLayer(shipMarker);
                 }
 
-                // Neuen Schiffs-Marker zur Karte hinzufügen
                 shipMarker = L.marker([posReport.Latitude, posReport.Longitude], {
                     icon: shipIcon
                 }).addTo(map).bindPopup(popupContent);
 
-                // Popup automatisch öffnen (nur beim ersten Laden und wenn popupzoom aktiviert)
                 if (!infoControl && urlParams.popupzoom) {
                     shipMarker.openPopup();
                 }
 
-                // Info-Control aktualisieren (immer anzeigen)
                 if (infoControl) {
                     map.removeControl(infoControl);
                 }
 
-                // Zusätzliche Informationen als permanentes Control hinzufügen
                 infoControl = L.control({ position: 'topright' });
                 infoControl.onAdd = function (map) {
                     const div = L.DomUtil.create('div', 'status-info');
@@ -603,7 +647,9 @@
                         ` : 'Wetter: Nicht verfügbar<br>'}
                         Update: vor ${timeSinceUpdate}
                     `;
-                    div.style.background = 'rgba(255,255,255,0.95)';
+                    div.style.background = currentBasemap === 'blackwhite' ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.95)';
+                    div.style.color = currentBasemap === 'blackwhite' ? '#fff' : '#000';
+                    div.style.border = currentBasemap === 'blackwhite' ? '2px solid #fff' : 'none';
                     div.style.padding = '10px';
                     div.style.borderRadius = '5px';
                     div.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
@@ -617,10 +663,7 @@
             }
         }
 
-        // Karte initialisieren beim Laden der Seite
         initializeMap();
-
-        // Automatische Updates alle 30 Sekunden (lädt neue Daten vom Server)
         setInterval(updateShipData, 30000);
     </script>
 </body>
