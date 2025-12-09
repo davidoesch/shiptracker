@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Schiffs-Tracker</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
     <style>
         body {
             margin: 0;
@@ -50,6 +51,15 @@
             color: red;
             font-weight: bold;
         }
+
+        .maplibregl-popup-content {
+            padding: 0 !important;
+        }
+
+        .maplibregl-ctrl-top-right {
+            top: 10px;
+            right: 10px;
+        }
     </style>
 </head>
 
@@ -58,6 +68,7 @@
     <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
     <script>
         // Navigationsstatus-Mapping
         const navigationStatus = {
@@ -217,12 +228,13 @@
 
         // Globale Variablen für Karte und Layer
         let map;
+        let mapType; // 'leaflet' or 'maplibre'
         let shipMarker;
         let trackLayers = [];
         let infoControl;
         let currentShipData = null;
-        let esriImagery, esriLabels, osmPositron, blackWhiteMap;
-        let currentBasemap = 'satellite'; // 'satellite', 'osm', or 'blackwhite'
+        let esriImagery, esriLabels, osmPositron;
+        let currentBasemap = 'satellite';
         let positionMarkers = [];
         let positionsData = null;
 
@@ -232,11 +244,10 @@
             return {
                 popupzoom: params.get('popupzoom') !== 'false',
                 zoom: parseInt(params.get('zoom')) || 5,
-                map: params.get('map') || 'satellite' // 'satellite', 'osm', or 'blackwhite'
+                map: params.get('map') || 'satellite'
             };
         }
 
-        // URL-Parameter einmal beim Laden auslesen
         const urlParams = getUrlParameters();
 
         // Funktion zur Konvertierung von Windgeschwindigkeit (km/h) in Beaufort-Skala
@@ -279,9 +290,9 @@
             return Math.round(totalDistance * 10) / 10;
         }
 
-        // Funktion zum Anzeigen/Ausblenden der Positionsmarker basierend auf Zoom-Level
+        // ===== LEAFLET FUNCTIONS =====
         function updatePositionMarkersVisibility() {
-            if (!map) return;
+            if (!map || mapType !== 'leaflet') return;
             const currentZoom = map.getZoom();
             const shouldShow = currentZoom >= 6 && currentZoom <= 22;
 
@@ -298,8 +309,7 @@
             });
         }
 
-        // Funktion zum Laden und Anzeigen der Schiffspositionen
-        async function loadAndDisplayPositions() {
+        async function loadAndDisplayPositionsLeaflet() {
             if (positionMarkers.length > 0) {
                 positionMarkers.forEach(marker => {
                     if (map.hasLayer(marker)) {
@@ -347,8 +357,7 @@
             }
         }
 
-        // Funktion zum Laden und Anzeigen der Schiffsspuren
-        async function loadAndDisplayTracks() {
+        async function loadAndDisplayTracksLeaflet() {
             if (trackLayers.length > 0) {
                 trackLayers.forEach(layer => {
                     if (map.hasLayer(layer)) {
@@ -389,7 +398,6 @@
                             `;
 
                             trackLine.bindPopup(trackPopupContent);
-
                             trackLayers.push(trackLine);
                         }
                     });
@@ -399,125 +407,62 @@
             }
         }
 
-        // Funktion zur Karteninitialisierung
-        async function initializeMap() {
-            try {
-                currentShipData = await loadShipData();
-                const posReport = currentShipData.PositionReport;
+        async function initializeLeafletMap() {
+            mapType = 'leaflet';
+            currentShipData = await loadShipData();
+            const posReport = currentShipData.PositionReport;
 
-                document.getElementById('loading').style.display = 'none';
+            document.getElementById('loading').style.display = 'none';
 
-                map = L.map('map', {
-                    zoomControl: urlParams.popupzoom
-                }).setView([posReport.Latitude, posReport.Longitude], urlParams.zoom);
+            map = L.map('map', {
+                zoomControl: urlParams.popupzoom
+            }).setView([posReport.Latitude, posReport.Longitude], urlParams.zoom);
 
-                // Basiskarten definieren
-                esriImagery = L.tileLayer(
-                    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                    attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics',
-                    maxZoom: 19
-                });
+            esriImagery = L.tileLayer(
+                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics',
+                maxZoom: 19
+            });
 
-                esriLabels = L.tileLayer(
-                    'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-                    attribution: 'Labels &copy; Esri',
-                    maxZoom: 19
-                });
+            esriLabels = L.tileLayer(
+                'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Labels &copy; Esri',
+                maxZoom: 19
+            });
 
-                osmPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                    subdomains: 'abcd',
-                    maxZoom: 19
-                });
+            osmPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                subdomains: 'abcd',
+                maxZoom: 19
+            });
 
-                // Black/White Map mit OpenFreeMap und custom style
-                try {
-                    const styleResponse = await fetch('style_bw.json');
-                    if (styleResponse.ok) {
-                        const style = await styleResponse.json();
-
-                        // OpenFreeMap verwenden mit custom style
-                        blackWhiteMap = L.tileLayer('https://tiles.openfreemap.org/styles/liberty/{z}/{x}/{y}.png', {
-                            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://openfreemap.org">OpenFreeMap</a>',
-                            maxZoom: 19
-                        });
-
-                        console.log('Black/White style erfolgreich geladen');
-                    } else {
-                        console.warn('style_bw.json nicht gefunden, verwende Standard OpenFreeMap');
-                        blackWhiteMap = L.tileLayer('https://tiles.openfreemap.org/styles/liberty/{z}/{x}/{y}.png', {
-                            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://openfreemap.org">OpenFreeMap</a>',
-                            maxZoom: 19
-                        });
-                    }
-                } catch (error) {
-                    console.warn('Fehler beim Laden von style_bw.json:', error);
-                    blackWhiteMap = L.tileLayer('https://tiles.openfreemap.org/styles/liberty/{z}/{x}/{y}.png', {
-                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://openfreemap.org">OpenFreeMap</a>',
-                        maxZoom: 19
-                    });
-                }
-
-                // Basiskarte basierend auf URL-Parameter setzen
-                currentBasemap = urlParams.map;
-                if (currentBasemap === 'osm') {
-                    osmPositron.addTo(map);
-                } else if (currentBasemap === 'blackwhite') {
-                    blackWhiteMap.addTo(map);
-                } else {
-                    esriImagery.addTo(map);
-                    esriLabels.addTo(map);
-                }
-
-                await loadAndDisplayTracks();
-                await loadAndDisplayPositions();
-
-                map.on('zoomend', updatePositionMarkersVisibility);
-
-                updateShipDisplay();
-
-            } catch (error) {
-                console.error('Fehler beim Initialisieren der Karte:', error);
-                document.getElementById('loading').innerHTML = `
-                    <div class="error-message">
-                        Fehler beim Laden der Schiffsdaten:<br>
-                        ${error.message}<br><br>
-                        Bitte prüfen Sie, ob die Datei 'position_report.json' auf dem Server verfügbar ist.
-                    </div>
-                `;
+            currentBasemap = urlParams.map;
+            if (currentBasemap === 'osm') {
+                osmPositron.addTo(map);
+            } else {
+                esriImagery.addTo(map);
+                esriLabels.addTo(map);
             }
+
+            await loadAndDisplayTracksLeaflet();
+            await loadAndDisplayPositionsLeaflet();
+
+            map.on('zoomend', updatePositionMarkersVisibility);
+
+            updateShipDisplayLeaflet();
         }
 
-        // Funktion zum Aktualisieren der Schiffsdaten
-        async function updateShipData() {
+        function updateShipDisplayLeaflet() {
             try {
-                await loadAndDisplayTracks();
-                await loadAndDisplayPositions();
-                currentShipData = await loadShipData();
-                updateShipDisplay();
-            } catch (error) {
-                console.error('Fehler beim Aktualisieren der Schiffsdaten:', error);
-            }
-        }
-
-        // Funktion zum Anzeigen der Schiffsdaten auf der Karte
-        function updateShipDisplay() {
-            try {
-                if (!currentShipData) {
-                    console.warn('Keine Schiffsdaten verfügbar');
-                    return;
-                }
+                if (!currentShipData) return;
 
                 const posReport = currentShipData.PositionReport;
                 const metaData = currentShipData.MetaData;
                 const weatherData = currentShipData.WeatherData;
 
-                const statusText = navigationStatus[posReport.NavigationalStatus] || "Unbekannt";
                 const isMoving = posReport.NavigationalStatus !== 1 && posReport.Cog !== 360 && posReport.Sog > 0;
                 const currentStatus = isMoving ? "Unterwegs" : "Gestoppt/Vor Anker";
-
                 const shipColor = getShipColor(posReport.NavigationalStatus, posReport.Cog, posReport.Sog);
                 const shipIcon = createShipIcon(posReport.Cog, shipColor, isMoving);
-
                 const timeSinceUpdate = getTimeSinceUpdate(metaData.time_utc);
                 const windBeaufort = weatherData ? getBeaufortScale(weatherData.windstaerke) : 'Nicht verfügbar';
 
@@ -584,9 +529,300 @@
             }
         }
 
+        // ===== MAPLIBRE FUNCTIONS =====
+        async function initializeMapLibreMap() {
+            mapType = 'maplibre';
+            currentShipData = await loadShipData();
+            const posReport = currentShipData.PositionReport;
+
+            document.getElementById('loading').style.display = 'none';
+
+            // Try to load custom style, fallback to default
+            let styleUrl = 'style_bw.json';
+            try {
+                const styleCheck = await fetch(styleUrl);
+                if (!styleCheck.ok) {
+                    console.warn('Custom style not found, using default OpenFreeMap style');
+                    styleUrl = 'https://tiles.openfreemap.org/styles/liberty';
+                }
+            } catch (error) {
+                console.warn('Error loading custom style:', error);
+                styleUrl = 'https://tiles.openfreemap.org/styles/liberty';
+            }
+
+            map = new maplibregl.Map({
+                container: 'map',
+                style: styleUrl,
+                center: [posReport.Longitude, posReport.Latitude],
+                zoom: urlParams.zoom,
+                attributionControl: true
+            });
+
+            if (!urlParams.popupzoom) {
+                map.addControl(new maplibregl.NavigationControl(), 'top-right');
+            }
+
+            map.on('load', async () => {
+                await loadAndDisplayTracksMapLibre();
+                await loadAndDisplayPositionsMapLibre();
+                updateShipDisplayMapLibre();
+            });
+
+            map.on('zoom', () => {
+                updatePositionMarkersVisibilityMapLibre();
+            });
+        }
+
+        async function loadAndDisplayTracksMapLibre() {
+            try {
+                const tracksData = await loadShipTracks();
+
+                if (tracksData && tracksData.features) {
+                    // Add source
+                    if (!map.getSource('ship-tracks')) {
+                        map.addSource('ship-tracks', {
+                            type: 'geojson',
+                            data: tracksData
+                        });
+
+                        // Add line layer
+                        map.addLayer({
+                            id: 'ship-tracks-layer',
+                            type: 'line',
+                            source: 'ship-tracks',
+                            paint: {
+                                'line-color': '#ff0000',
+                                'line-width': 3,
+                                'line-opacity': 0.8,
+                                'line-dasharray': [2, 2]
+                            }
+                        });
+
+                        // Add click handler for popups
+                        map.on('click', 'ship-tracks-layer', (e) => {
+                            const feature = e.features[0];
+                            const props = feature.properties;
+                            const startTime = new Date(props.start_time).toLocaleDateString('de-DE');
+                            const endTime = new Date(props.end_time).toLocaleDateString('de-DE');
+                            const trackLength = calculateTrackLength(feature.geometry.coordinates);
+
+                            new maplibregl.Popup()
+                                .setLngLat(e.lngLat)
+                                .setHTML(`
+                                    <div class="ship-popup" style="padding: 10px;">
+                                        <h4 style="margin-top:0; color:#2c5aa0;">Fahrtroute</h4>                                   
+                                        <strong>Startzeit:</strong> ${startTime}<br>
+                                        <strong>Endzeit:</strong> ${endTime}<br>
+                                        <strong>Länge:</strong> ${trackLength} Seemeilen<br>
+                                    </div>
+                                `)
+                                .addTo(map);
+                        });
+
+                        map.on('mouseenter', 'ship-tracks-layer', () => {
+                            map.getCanvas().style.cursor = 'pointer';
+                        });
+
+                        map.on('mouseleave', 'ship-tracks-layer', () => {
+                            map.getCanvas().style.cursor = '';
+                        });
+                    }
+                }
+            } catch (error) {
+                console.warn('Schiffsspuren konnten nicht geladen werden:', error);
+            }
+        }
+
+        async function loadAndDisplayPositionsMapLibre() {
+            try {
+                positionsData = await loadShipPositions();
+
+                if (positionsData && positionsData.features) {
+                    if (!map.getSource('ship-positions')) {
+                        map.addSource('ship-positions', {
+                            type: 'geojson',
+                            data: positionsData
+                        });
+
+                        map.addLayer({
+                            id: 'ship-positions-layer',
+                            type: 'circle',
+                            source: 'ship-positions',
+                            paint: {
+                                'circle-radius': 5,
+                                'circle-color': '#ff0000',
+                                'circle-stroke-width': 1,
+                                'circle-stroke-color': '#ffffff'
+                            },
+                            minzoom: 6,
+                            maxzoom: 22
+                        });
+
+                        map.addLayer({
+                            id: 'ship-positions-labels',
+                            type: 'symbol',
+                            source: 'ship-positions',
+                            layout: {
+                                'text-field': ['get', 'date'],
+                                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                                'text-size': 11,
+                                'text-offset': [1, 0],
+                                'text-anchor': 'left'
+                            },
+                            paint: {
+                                'text-color': '#ff0000',
+                                'text-halo-color': '#ffffff',
+                                'text-halo-width': 2
+                            },
+                            minzoom: 6,
+                            maxzoom: 22
+                        });
+                    }
+                }
+            } catch (error) {
+                console.warn('Schiffspositionen konnten nicht geladen werden:', error);
+            }
+        }
+
+        function updatePositionMarkersVisibilityMapLibre() {
+            // MapLibre handles visibility via minzoom/maxzoom in layer definition
+        }
+
+        function updateShipDisplayMapLibre() {
+            try {
+                if (!currentShipData) return;
+
+                const posReport = currentShipData.PositionReport;
+                const metaData = currentShipData.MetaData;
+                const weatherData = currentShipData.WeatherData;
+
+                const isMoving = posReport.NavigationalStatus !== 1 && posReport.Cog !== 360 && posReport.Sog > 0;
+                const currentStatus = isMoving ? "Unterwegs" : "Gestoppt/Vor Anker";
+                const shipColor = getShipColor(posReport.NavigationalStatus, posReport.Cog, posReport.Sog);
+                const timeSinceUpdate = getTimeSinceUpdate(metaData.time_utc);
+                const windBeaufort = weatherData ? getBeaufortScale(weatherData.windstaerke) : 'Nicht verfügbar';
+
+                // Create ship icon HTML
+                let iconHtml;
+                if (!isMoving) {
+                    iconHtml = `<svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="${shipColor}" stroke="#000" stroke-width="2"/></svg>`;
+                } else if (posReport.Cog === 370) {
+                    iconHtml = `<svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#28a745" stroke="#000" stroke-width="2"/></svg>`;
+                } else {
+                    const rotation = posReport.Cog === 360 ? 0 : posReport.Cog;
+                    iconHtml = `<svg width="46" height="46" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" fill="white" fill-opacity="0.01"/><g transform="rotate(${rotation - 45} 24 24)" fill="${shipColor}" stroke="#000" stroke-width="1"><path d="M42 6L4 20.1383L24 24.0083L29.0052 44L42 6Z"/></g></svg>`;
+                }
+
+                // Create marker element
+                const el = document.createElement('div');
+                el.innerHTML = iconHtml;
+                el.style.cursor = 'pointer';
+
+                const popupContent = `
+                    <div class="ship-popup" style="padding: 10px;">
+                        <h3 style="margin-top:0; color:#2c5aa0;">${metaData.ShipName}</h3>
+                        <div class="status-info">
+                            <strong>Status:</strong> ${currentStatus}<br>                            
+                            <strong>Geschwindigkeit:</strong> ${posReport.Sog} Knoten<br>
+                            <strong>Kurs:</strong> ${posReport.Cog === 360 || posReport.Cog === 999 ? 'Nicht verfügbar' : posReport.Cog + '°'}<br>                       
+                            ${weatherData ? `
+                            <strong>Wetter:</strong> ${weatherData.wetterzustand}<br>
+                            <strong>Lufttemperatur:</strong> ${weatherData.lufttemperatur}°C<br>
+                            <strong>Wind:</strong> ${windBeaufort}<br>
+                            <strong>Wassertemperatur:</strong> ${weatherData.wassertemperatur} °C<br>
+                            <strong>Wellenhöhe:</strong> ${weatherData.wellenhoehe} m<br>
+                            ` : '<strong>Wetterdaten:</strong> Nicht verfügbar<br>'}
+                            <strong>Letztes Update:</strong> vor ${timeSinceUpdate}<br>
+                            <strong>Logbuch (PDF):</strong> <a href="https://github.com/davidoesch/shiptracker/raw/main/nautical_logbook.pdf" download="nautical_logbook.pdf" style="color:#2c5aa0; text-decoration:underline;">PDF herunterladen</a>
+                        </div>
+                    </div>
+                `;
+
+                shipMarker = new maplibregl.Marker({ element: el })
+                    .setLngLat([posReport.Longitude, posReport.Latitude])
+                    .setPopup(new maplibregl.Popup({ offset: 25 }).setHTML(popupContent))
+                    .addTo(map);
+
+                if (urlParams.popupzoom) {
+                    shipMarker.togglePopup();
+                }
+
+                // Add info control
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+                infoDiv.innerHTML = `
+                    <div class="status-info">
+                        <strong>${metaData.ShipName}</strong><br>
+                        Status: ${currentStatus}<br>
+                        Geschwindigkeit: ${posReport.Sog} kn<br>
+                        ${weatherData ? `
+                        Wetter: ${weatherData.wetterzustand}<br>
+                        Wind: ${windBeaufort}<br>
+                        ` : 'Wetter: Nicht verfügbar<br>'}
+                        Update: vor ${timeSinceUpdate}
+                    </div>
+                `;
+
+                const topRightControls = document.querySelector('.maplibregl-ctrl-top-right');
+                if (topRightControls) {
+                    topRightControls.appendChild(infoDiv);
+                }
+
+            } catch (error) {
+                console.error('Fehler beim Anzeigen der Schiffsdaten:', error);
+            }
+        }
+
+        // ===== MAIN INITIALIZATION =====
+        async function initializeMap() {
+            try {
+                if (urlParams.map === 'blackwhite') {
+                    await initializeMapLibreMap();
+                } else {
+                    await initializeLeafletMap();
+                }
+            } catch (error) {
+                console.error('Fehler beim Initialisieren der Karte:', error);
+                document.getElementById('loading').innerHTML = `
+                    <div class="error-message">
+                        Fehler beim Laden der Schiffsdaten:<br>
+                        ${error.message}<br><br>
+                        Bitte prüfen Sie, ob die Datei 'position_report.json' auf dem Server verfügbar ist.
+                    </div>
+                `;
+            }
+        }
+
+        async function updateShipData() {
+            try {
+                if (mapType === 'leaflet') {
+                    await loadAndDisplayTracksLeaflet();
+                    await loadAndDisplayPositionsLeaflet();
+                    currentShipData = await loadShipData();
+                    updateShipDisplayLeaflet();
+                } else {
+                    // For MapLibre, update sources
+                    currentShipData = await loadShipData();
+                    
+                    const tracksData = await loadShipTracks();
+                    if (tracksData && map.getSource('ship-tracks')) {
+                        map.getSource('ship-tracks').setData(tracksData);
+                    }
+                    
+                    const positionsData = await loadShipPositions();
+                    if (positionsData && map.getSource('ship-positions')) {
+                        map.getSource('ship-positions').setData(positionsData);
+                    }
+                    
+                    if (shipMarker) {
+                        shipMarker.remove();
+                    }
+                    updateShipDisplayMapLibre();
+                }
+            } catch (error) {
+                console.error('Fehler beim Aktualisieren der Schiffsdaten:', error);
+            }
+        }
+
         initializeMap();
         setInterval(updateShipData, 30000);
-    </script>
-</body>
-
-</html>
