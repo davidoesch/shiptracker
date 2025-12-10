@@ -56,7 +56,7 @@ jobs:
         push-branch: 'main'
         commit-message: 'Update CSV, JSON, and GEOJSON files'
         force-add: 'true'
-        files: "*.csv *.json *.geojson *.log"
+        files: "*.csv *.json *.geojson"
         name: autoupdate
 
 
