@@ -760,23 +760,23 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -61.4992,
-          16.20136
+          -61.49918,
+          16.20137
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "18.12.2025",
-        "timestamp_utc": "2025-12-18T22:53:30+00:00",
-        "cog": 27.0,
-        "sog": 0.2,
+        "timestamp_utc": "2025-12-18T23:41:25+00:00",
+        "cog": 15.0,
+        "sog": 1.2,
         "navigational_status": 0,
         "wetterzustand": "Teilweise bew\u00f6lkt",
-        "luftdruck": 1015.1,
+        "luftdruck": 1015.5,
         "windrichtung": 108.0,
-        "windstaerke": 7.2,
+        "windstaerke": 6.8,
         "bewoelkung": 45.0,
-        "lufttemperatur": 24.5,
+        "lufttemperatur": 24.2,
         "wassertemperatur": 27.8,
         "niederschlag": 0.0,
         "wellenhoehe": 1.68
