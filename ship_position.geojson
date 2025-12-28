@@ -869,21 +869,21 @@
         "type": "Point",
         "coordinates": [
           -70.03329,
-          12.5084
+          12.50849
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "28.12.2025",
-        "timestamp_utc": "2025-12-28T19:34:18+00:00",
+        "timestamp_utc": "2025-12-28T20:01:18+00:00",
         "cog": 360.0,
-        "sog": 0.2,
-        "navigational_status": 0,
+        "sog": 0.0,
+        "navigational_status": 1,
         "wetterzustand": "\u00dcberwiegend klar",
-        "luftdruck": 1011.0,
-        "windrichtung": 80.0,
-        "windstaerke": 29.7,
-        "bewoelkung": 31.0,
+        "luftdruck": 1010.9,
+        "windrichtung": 78.0,
+        "windstaerke": 29.8,
+        "bewoelkung": 28.0,
         "lufttemperatur": 27.5,
         "wassertemperatur": 27.0,
         "niederschlag": 0.0,
