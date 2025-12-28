@@ -868,22 +868,22 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -70.03328,
-          12.50833
+          -70.03326,
+          12.50827
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "28.12.2025",
-        "timestamp_utc": "2025-12-28T17:37:15+00:00",
-        "cog": 141.0,
+        "timestamp_utc": "2025-12-28T17:58:17+00:00",
+        "cog": 138.0,
         "sog": 0.2,
         "navigational_status": 0,
-        "wetterzustand": "Teilweise bew\u00f6lkt",
-        "luftdruck": 1012.2,
-        "windrichtung": 86.0,
-        "windstaerke": 28.5,
-        "bewoelkung": 62.0,
+        "wetterzustand": "\u00dcberwiegend klar",
+        "luftdruck": 1011.7,
+        "windrichtung": 84.0,
+        "windstaerke": 28.6,
+        "bewoelkung": 33.0,
         "lufttemperatur": 27.5,
         "wassertemperatur": 27.0,
         "niederschlag": 0.0,
