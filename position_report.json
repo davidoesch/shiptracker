@@ -3,12 +3,12 @@
     "wetterzustand": "\u00dcberwiegend klar",
     "luftdruck": 1009.9,
     "windrichtung": 76,
-    "windstaerke": 11.9,
-    "bewoelkung": 25,
+    "windstaerke": 11.5,
+    "bewoelkung": 18,
     "lufttemperatur": 25.9,
     "niederschlag": 0.0,
     "wassertemperatur": 24.4,
-    "wellenhoehe": 1.16
+    "wellenhoehe": 1.1
   },
   "timestamp_utc": "2025-12-31T05:53:05+00:00",
   "PositionReport": {
