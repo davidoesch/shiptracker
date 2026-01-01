@@ -949,23 +949,23 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -74.21683,
-          11.24494
+          -74.21686,
+          11.24489
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "01.01.2026",
-        "timestamp_utc": "2026-01-01T09:48:04+00:00",
-        "cog": 121.0,
-        "sog": 0.3,
-        "navigational_status": 0,
+        "timestamp_utc": "2026-01-01T10:00:03+00:00",
+        "cog": 360.0,
+        "sog": 0.0,
+        "navigational_status": 1,
         "wetterzustand": "Bedeckt",
-        "luftdruck": 1009.0,
-        "windrichtung": 28.0,
-        "windstaerke": 6.9,
+        "luftdruck": 1007.9,
+        "windrichtung": 27.0,
+        "windstaerke": 14.2,
         "bewoelkung": 100.0,
-        "lufttemperatur": 30.1,
+        "lufttemperatur": 30.5,
         "wassertemperatur": 26.7,
         "niederschlag": 0.0,
         "wellenhoehe": 0.98
