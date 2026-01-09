@@ -1,13 +1,13 @@
 {
   "WeatherData": {
     "wetterzustand": "Teilweise bew\u00f6lkt",
-    "luftdruck": 1009.1,
-    "windrichtung": 360,
-    "windstaerke": 7.2,
+    "luftdruck": 1009.7,
+    "windrichtung": 3,
+    "windstaerke": 6.8,
     "bewoelkung": 48,
-    "lufttemperatur": 25.8,
+    "lufttemperatur": 25.7,
     "niederschlag": 0.0,
-    "wassertemperatur": 28.1,
+    "wassertemperatur": 28.0,
     "wellenhoehe": 0.9
   },
   "timestamp_utc": "2026-01-09T07:56:33+00:00",
