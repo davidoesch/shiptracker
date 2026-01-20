@@ -1084,17 +1084,17 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -80.04356,
-          9.45822
+          -80.06733,
+          9.45617
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "20.01.2026",
-        "timestamp_utc": "2026-01-20T21:45:56+00:00",
-        "cog": 255.0,
-        "sog": 7.8,
-        "navigational_status": 0,
+        "timestamp_utc": "2026-01-20T21:58:07+00:00",
+        "cog": 266.0,
+        "sog": 5.9,
+        "navigational_status": 8,
         "wetterzustand": "\u00dcberwiegend klar",
         "luftdruck": 1009.9,
         "windrichtung": 26.0,
