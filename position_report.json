@@ -1,11 +1,11 @@
 {
   "WeatherData": {
     "wetterzustand": "Leichte Regenschauer",
-    "luftdruck": 1011.8,
-    "windrichtung": 11,
-    "windstaerke": 18.4,
-    "bewoelkung": 66,
-    "lufttemperatur": 26.4,
+    "luftdruck": 1011.9,
+    "windrichtung": 12,
+    "windstaerke": 18.0,
+    "bewoelkung": 79,
+    "lufttemperatur": 26.3,
     "niederschlag": 0.1,
     "wassertemperatur": 27.6,
     "wellenhoehe": 2.1
