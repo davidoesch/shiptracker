@@ -38,24 +38,27 @@ jobs:
       with:
         chrome-version: stable
     
-    - name: Setup matching ChromeDriver
+     - name: Setup matching ChromeDriver and remove all other Chrome instances
       run: |
-        # Remove old chromedrivers
-        sudo find / -name "chromedriver" -type f -delete 2>/dev/null || true
-        sudo rm -f /usr/bin/google-chrome /usr/bin/google-chrome-stable
+        # Find ALL chrome and chromedriver binaries
+        echo "Finding all chrome binaries..."
+        sudo find / -name "chrome" -type f -executable 2>/dev/null | grep -E "(chrome|chromium)" || true
+        sudo find / -name "chromedriver" -type f 2>/dev/null || true
         
-        # Get the actual Chrome version (fixed parsing)
+        # Remove ALL chrome and chromedriver binaries except our installed one
+        sudo rm -f /usr/bin/chromedriver /usr/local/bin/chromedriver
+        sudo rm -f /usr/bin/google-chrome /usr/bin/google-chrome-stable /usr/bin/chromium-browser
+        sudo rm -rf /usr/bin/chrome /snap/chromium
+        
+        # Remove any other chrome installations
+        sudo apt-get remove -y chromium-browser google-chrome-stable 2>/dev/null || true
+        
+        # Get the Chrome version we just installed
         CHROME_PATH="/opt/hostedtoolcache/setup-chrome/chrome/stable/x64"
         FULL_VERSION=$($CHROME_PATH/chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+')
-        CHROME_VERSION=$(echo $FULL_VERSION | cut -d'.' -f1)
         echo "Chrome full version: $FULL_VERSION"
-        echo "Chrome major version: $CHROME_VERSION"
         
-        # Create symlink for Chrome
-        sudo ln -sf $CHROME_PATH/chrome /usr/bin/google-chrome
-        sudo ln -sf $CHROME_PATH/chrome /usr/bin/google-chrome-stable
-        
-        # Download matching ChromeDriver using the same version
+        # Download matching ChromeDriver
         echo "Downloading ChromeDriver for version $FULL_VERSION..."
         wget -q "https://storage.googleapis.com/chrome-for-testing-public/${FULL_VERSION}/linux64/chromedriver-linux64.zip"
         unzip -q chromedriver-linux64.zip
@@ -63,10 +66,10 @@ jobs:
         sudo chmod +x /usr/local/bin/chromedriver
         
         # Verify versions
-        echo "Installed ChromeDriver:"
+        echo "ChromeDriver version:"
         /usr/local/bin/chromedriver --version
-        echo "Installed Chrome:"
-        /usr/bin/google-chrome --version
+        echo "Chrome version:"
+        $CHROME_PATH/chrome --version
     
     - name: Install xvfb
       run: |
@@ -79,8 +82,12 @@ jobs:
         pip install -r requirements.txt
     
     - name: Run Python script
+      env:
+        PATH: /usr/local/bin:/opt/hostedtoolcache/setup-chrome/chrome/stable/x64:$PATH
       run: |
-        export PATH=/usr/local/bin:$PATH
+        echo "PATH: $PATH"
+        echo "ChromeDriver location: $(which chromedriver)"
+        echo "Chrome binary will be found at: /opt/hostedtoolcache/setup-chrome/chrome/stable/x64/chrome"
         xvfb-run --server-args="-screen 0 1920x1080x24" python ais_ship_tracker_weather.py
       env: # Set the secrets as env var
         AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
