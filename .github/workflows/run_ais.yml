@@ -33,11 +33,17 @@ jobs:
     #    sudo apt-get update
     #    sudo apt-get install -y chromium-browser
     
-    - name: Remove old ChromeDriver and install matching version
+    - name: Set up Chrome and ChromeDriver
+      uses: browser-actions/setup-chrome@latest
+      with:
+        chrome-version: stable
+    
+    - name: Remove ALL old ChromeDriver versions and install matching version
       run: |
-        # Remove all old ChromeDriver versions
-        sudo rm -f /usr/bin/chromedriver
-        sudo rm -f /usr/local/bin/chromedriver
+        # Find and remove ALL ChromeDriver instances
+        echo "Finding all chromedriver instances..."
+        sudo find / -name "chromedriver" -type f 2>/dev/null || true
+        sudo find / -name "chromedriver" -type f -delete 2>/dev/null || true
         
         # Get Chrome version
         CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d'.' -f1)
@@ -52,9 +58,14 @@ jobs:
         sudo mv chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
         sudo chmod +x /usr/local/bin/chromedriver
         
-        # Verify it's the correct version
+        # Verify it's the correct version and location
+        echo "Installed ChromeDriver:"
         chromedriver --version
         which chromedriver
+        
+        # Double check no other instances exist
+        echo "Checking for any remaining chromedriver instances:"
+        sudo find / -name "chromedriver" -type f 2>/dev/null || true
 
     - name: Install xfvb
       run: |
