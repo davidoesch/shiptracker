@@ -28,10 +28,12 @@ jobs:
         # Remove any existing Chrome installations
         sudo apt-get remove -y chromium-browser google-chrome-stable 2>/dev/null || true
         
-        # Install Chrome 142 to match your Python code
-        CHROME_VERSION="142.0.6367.118"
+        # Find available Chrome 142 version
+        echo "Finding available Chrome 142 version..."
+        CHROME_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_142")
         echo "Installing Chrome version $CHROME_VERSION to match undetected-chromedriver version_main=142"
         
+        # Install Chrome 142
         wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chrome-linux64.zip"
         unzip -q chrome-linux64.zip
         sudo mkdir -p /opt/chrome
