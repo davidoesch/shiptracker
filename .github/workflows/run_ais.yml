@@ -23,22 +23,45 @@ jobs:
       with:
         python-version: 3.9
     
+    - name: Remove ALL Chrome installations completely
+      run: |
+        echo "Removing ALL Chrome installations..."
+        # Remove package-managed Chrome
+        sudo apt-get remove -y chromium-browser google-chrome-stable 2>/dev/null || true
+        sudo apt-get purge -y chromium-browser google-chrome-stable 2>/dev/null || true
+        sudo apt-get autoremove -y
+        
+        # Find and remove ALL chrome binaries
+        echo "Finding all chrome binaries..."
+        sudo find / -name "chrome" -type f -executable 2>/dev/null | grep -i chrome || true
+        
+        # Remove them all
+        sudo rm -rf /opt/google
+        sudo rm -rf /opt/chrome
+        sudo rm -rf /usr/local/share/chrome*
+        sudo rm -rf /usr/local/share/chromium
+        sudo rm -rf /home/runner/.cache/selenium
+        sudo rm -rf /tmp/.com.google.Chrome*
+        sudo find / -name "chrome" -path "*/chrome-linux64/*" -type f -delete 2>/dev/null || true
+        
+        echo "All Chrome installations removed"
+    
     - name: Install Chrome 142 and ChromeDriver 142
       run: |
-        # Remove any existing Chrome installations
-        sudo apt-get remove -y chromium-browser google-chrome-stable 2>/dev/null || true
-        
         # Find available Chrome 142 version
         echo "Finding available Chrome 142 version..."
         CHROME_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_142")
-        echo "Installing Chrome version $CHROME_VERSION to match undetected-chromedriver version_main=142"
+        echo "Installing Chrome version $CHROME_VERSION"
         
         # Install Chrome 142
         wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chrome-linux64.zip"
         unzip -q chrome-linux64.zip
         sudo mkdir -p /opt/chrome
         sudo mv chrome-linux64 /opt/chrome/
+        
+        # Create symlink
         sudo ln -sf /opt/chrome/chrome-linux64/chrome /usr/bin/google-chrome
+        sudo ln -sf /opt/chrome/chrome-linux64/chrome /usr/bin/chrome
         
         # Install matching ChromeDriver
         wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chromedriver-linux64.zip"
@@ -46,9 +69,14 @@ jobs:
         sudo mv chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
         sudo chmod +x /usr/local/bin/chromedriver
         
-        # Verify
-        echo "Chrome version:"
+        # Verify ONLY our Chrome exists
+        echo "Verifying Chrome installation:"
         google-chrome --version
+        which google-chrome
+        
+        echo "Searching for any other chrome binaries:"
+        sudo find / -name "chrome" -type f -executable 2>/dev/null | grep -i chrome || echo "None found"
+        
         echo "ChromeDriver version:"
         chromedriver --version
     
@@ -64,7 +92,15 @@ jobs:
     
     - name: Run Python script
       run: |
+        # Set PATH to prioritize our Chrome installation
         export PATH="/usr/local/bin:/opt/chrome/chrome-linux64:$PATH"
+        
+        # Debug: Show what will be used
+        echo "Chrome binary that will be used:"
+        which google-chrome
+        google-chrome --version
+        
+        echo "Running script..."
         xvfb-run --server-args="-screen 0 1920x1080x24" python ais_ship_tracker_weather.py
       env:
         AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
