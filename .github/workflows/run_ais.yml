@@ -32,12 +32,16 @@ jobs:
     
     - name: Setup matching ChromeDriver and remove all other Chrome instances
       run: |
-        # Remove ALL chrome and chromedriver binaries except our installed one
+        # Find and DELETE ALL chromedriver binaries system-wide
+        echo "Finding and removing ALL chromedriver binaries..."
+        sudo find / -name "chromedriver" -type f -exec rm -f {} \; 2>/dev/null || true
+        
+        # Remove ALL chrome installations
         echo "Removing old Chrome installations..."
         sudo rm -rf /opt/google/chrome
         sudo rm -rf /usr/local/share/chromium
+        sudo rm -rf /usr/local/share/chromedriver-linux64
         sudo rm -rf /home/runner/work/_temp/*/chrome-linux64
-        sudo rm -f /usr/bin/chromedriver /usr/local/bin/chromedriver
         sudo rm -f /usr/bin/google-chrome /usr/bin/google-chrome-stable /usr/bin/chromium-browser
         sudo apt-get remove -y chromium-browser google-chrome-stable 2>/dev/null || true
         
@@ -52,6 +56,10 @@ jobs:
         unzip -q chromedriver-linux64.zip
         sudo mv chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
         sudo chmod +x /usr/local/bin/chromedriver
+        
+        # Verify ONLY ONE chromedriver exists
+        echo "Checking for any remaining chromedriver binaries:"
+        sudo find / -name "chromedriver" -type f 2>/dev/null || true
         
         # Verify versions
         echo "ChromeDriver version:"
@@ -71,10 +79,21 @@ jobs:
     
     - name: Run Python script
       run: |
+        # Set PATH to use our ChromeDriver first
         export PATH="/usr/local/bin:/opt/hostedtoolcache/setup-chrome/chrome/stable/x64:$PATH"
-        echo "PATH: $PATH"
-        echo "ChromeDriver: $(command -v chromedriver)"
-        chromedriver --version
+        
+        # Debug: verify what Selenium will use
+        echo "=== Debug Info ==="
+        echo "ChromeDriver in PATH: $(command -v chromedriver)"
+        echo "ChromeDriver version: $(chromedriver --version)"
+        echo "Chrome path: /opt/hostedtoolcache/setup-chrome/chrome/stable/x64/chrome"
+        echo "Chrome version: $(/opt/hostedtoolcache/setup-chrome/chrome/stable/x64/chrome --version)"
+        
+        # Check if there are any other chromedrivers
+        echo "All chromedriver files on system:"
+        sudo find / -name "chromedriver" -type f 2>/dev/null || echo "None found"
+        
+        echo "=== Running Script ==="
         xvfb-run --server-args="-screen 0 1920x1080x24" python ais_ship_tracker_weather.py
       env:
         AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
