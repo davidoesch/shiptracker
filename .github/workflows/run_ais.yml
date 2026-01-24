@@ -32,17 +32,13 @@ jobs:
     
     - name: Setup matching ChromeDriver and remove all other Chrome instances
       run: |
-        # Find ALL chrome and chromedriver binaries
-        echo "Finding all chrome binaries..."
-        sudo find / -name "chrome" -type f -executable 2>/dev/null | grep -E "(chrome|chromium)" || true
-        sudo find / -name "chromedriver" -type f 2>/dev/null || true
-        
         # Remove ALL chrome and chromedriver binaries except our installed one
+        echo "Removing old Chrome installations..."
+        sudo rm -rf /opt/google/chrome
+        sudo rm -rf /usr/local/share/chromium
+        sudo rm -rf /home/runner/work/_temp/*/chrome-linux64
         sudo rm -f /usr/bin/chromedriver /usr/local/bin/chromedriver
         sudo rm -f /usr/bin/google-chrome /usr/bin/google-chrome-stable /usr/bin/chromium-browser
-        sudo rm -rf /usr/bin/chrome /snap/chromium
-        
-        # Remove any other chrome installations
         sudo apt-get remove -y chromium-browser google-chrome-stable 2>/dev/null || true
         
         # Get the Chrome version we just installed
@@ -74,14 +70,14 @@ jobs:
         pip install -r requirements.txt
     
     - name: Run Python script
-      env:
-        PATH: /usr/local/bin:/opt/hostedtoolcache/setup-chrome/chrome/stable/x64:$PATH
-        AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
       run: |
+        export PATH="/usr/local/bin:/opt/hostedtoolcache/setup-chrome/chrome/stable/x64:$PATH"
         echo "PATH: $PATH"
-        echo "ChromeDriver location: $(which chromedriver)"
-        echo "Chrome binary will be found at: /opt/hostedtoolcache/setup-chrome/chrome/stable/x64/chrome"
+        echo "ChromeDriver: $(command -v chromedriver)"
+        chromedriver --version
         xvfb-run --server-args="-screen 0 1920x1080x24" python ais_ship_tracker_weather.py
+      env:
+        AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
       
     - name: Push CSV, JSON, GEOJSON files to repo
       uses: github-actions-x/commit@v2.9
