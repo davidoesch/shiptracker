@@ -57,10 +57,6 @@ jobs:
         sudo mv chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
         sudo chmod +x /usr/local/bin/chromedriver
         
-        # Verify ONLY ONE chromedriver exists
-        echo "Checking for any remaining chromedriver binaries:"
-        sudo find / -name "chromedriver" -type f 2>/dev/null || true
-        
         # Verify versions
         echo "ChromeDriver version:"
         /usr/local/bin/chromedriver --version
@@ -77,21 +73,26 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
+    - name: Clear Selenium cache and verify setup
+      run: |
+        # Clear any Selenium manager cache
+        rm -rf ~/.cache/selenium 2>/dev/null || true
+        rm -rf /root/.cache/selenium 2>/dev/null || true
+        
+        # Remove any pip-installed selenium drivers
+        pip uninstall -y selenium-manager 2>/dev/null || true
+        
+        # Verify again
+        echo "Final verification before running script:"
+        echo "ChromeDriver: $(command -v chromedriver) - $(chromedriver --version)"
+        echo "All chromedriver files:"
+        sudo find / -name "chromedriver" -type f 2>/dev/null || echo "None"
+    
     - name: Run Python script
       run: |
-        # Set PATH to use our ChromeDriver first
+        # Explicitly tell where Chrome binary is
         export PATH="/usr/local/bin:/opt/hostedtoolcache/setup-chrome/chrome/stable/x64:$PATH"
-        
-        # Debug: verify what Selenium will use
-        echo "=== Debug Info ==="
-        echo "ChromeDriver in PATH: $(command -v chromedriver)"
-        echo "ChromeDriver version: $(chromedriver --version)"
-        echo "Chrome path: /opt/hostedtoolcache/setup-chrome/chrome/stable/x64/chrome"
-        echo "Chrome version: $(/opt/hostedtoolcache/setup-chrome/chrome/stable/x64/chrome --version)"
-        
-        # Check if there are any other chromedrivers
-        echo "All chromedriver files on system:"
-        sudo find / -name "chromedriver" -type f 2>/dev/null || echo "None found"
+        export CHROME_BIN="/opt/hostedtoolcache/setup-chrome/chrome/stable/x64/chrome"
         
         echo "=== Running Script ==="
         xvfb-run --server-args="-screen 0 1920x1080x24" python ais_ship_tracker_weather.py
