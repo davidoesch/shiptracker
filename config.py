@@ -39,7 +39,7 @@ LOGBOOK_SETTINGS = {
 
 # Maximum monitoring duration in minutes
 # How long to monitor the AIS stream before stopping
-MAX_DURATION_MINUTES = 10
+MAX_DURATION_MINUTES = 0
 
 # Time threshold in hours for duplicate entry filtering
 # Skip new entries if the latest entry is younger than this threshold
