@@ -33,8 +33,12 @@ jobs:
     #    sudo apt-get update
     #    sudo apt-get install -y chromium-browser
     
-    - name: Install matching ChromeDriver
+    - name: Remove old ChromeDriver and install matching version
       run: |
+        # Remove all old ChromeDriver versions
+        sudo rm -f /usr/bin/chromedriver
+        sudo rm -f /usr/local/bin/chromedriver
+        
         # Get Chrome version
         CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d'.' -f1)
         echo "Chrome version: $CHROME_VERSION"
@@ -47,7 +51,10 @@ jobs:
         unzip -q chromedriver-linux64.zip
         sudo mv chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
         sudo chmod +x /usr/local/bin/chromedriver
+        
+        # Verify it's the correct version
         chromedriver --version
+        which chromedriver
 
     - name: Install xfvb
       run: |
