@@ -38,7 +38,7 @@ jobs:
       with:
         chrome-version: stable
     
-     - name: Setup matching ChromeDriver and remove all other Chrome instances
+    - name: Setup matching ChromeDriver and remove all other Chrome instances
       run: |
         # Find ALL chrome and chromedriver binaries
         echo "Finding all chrome binaries..."
