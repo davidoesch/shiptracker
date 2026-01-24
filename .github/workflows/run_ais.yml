@@ -1,12 +1,10 @@
 name: Run ais
-
 concurrency:
   group: run-ais-${{ github.ref }}
   cancel-in-progress: true
-
 on:
   schedule:
-  - cron:  '15,45 * * * *'
+  - cron: '15,45 * * * *'
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
   
@@ -14,7 +12,6 @@ jobs:
   build:
     # cf. https://docs.github.com/en/github/setting-up-and-managing-billing-and-payments-on-github/about-billing-for-github-actions
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout the repository
       uses: actions/checkout@v4
@@ -27,11 +24,6 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: 3.9
-
-    #- name: Install Chrome
-    #  run: |
-    #    sudo apt-get update
-    #    sudo apt-get install -y chromium-browser
     
     - name: Set up Chrome and ChromeDriver
       uses: browser-actions/setup-chrome@latest
@@ -84,15 +76,13 @@ jobs:
     - name: Run Python script
       env:
         PATH: /usr/local/bin:/opt/hostedtoolcache/setup-chrome/chrome/stable/x64:$PATH
+        AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
       run: |
         echo "PATH: $PATH"
         echo "ChromeDriver location: $(which chromedriver)"
         echo "Chrome binary will be found at: /opt/hostedtoolcache/setup-chrome/chrome/stable/x64/chrome"
         xvfb-run --server-args="-screen 0 1920x1080x24" python ais_ship_tracker_weather.py
-      env: # Set the secrets as env var
-        AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
       
-
     - name: Push CSV, JSON, GEOJSON files to repo
       uses: github-actions-x/commit@v2.9
       with:
@@ -101,7 +91,3 @@ jobs:
         force-add: 'true'
         files: "*.csv *.json *.geojson"
         name: autoupdate
-
-
-    
-        
