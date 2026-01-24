@@ -33,10 +33,21 @@ jobs:
     #    sudo apt-get update
     #    sudo apt-get install -y chromium-browser
     
-    - name: Set up Chrome and ChromeDriver
-      uses: browser-actions/setup-chrome@latest
-      with:
-        chrome-version: stable
+    - name: Install matching ChromeDriver
+      run: |
+        # Get Chrome version
+        CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d'.' -f1)
+        echo "Chrome version: $CHROME_VERSION"
+        
+        # Download matching ChromeDriver
+        CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_${CHROME_VERSION}")
+        echo "ChromeDriver version: $CHROMEDRIVER_VERSION"
+        
+        wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
+        unzip -q chromedriver-linux64.zip
+        sudo mv chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
+        sudo chmod +x /usr/local/bin/chromedriver
+        chromedriver --version
 
     - name: Install xfvb
       run: |
