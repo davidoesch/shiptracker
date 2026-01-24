@@ -5,12 +5,10 @@ concurrency:
 on:
   schedule:
   - cron: '15,45 * * * *'
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
   
 jobs:
   build:
-    # cf. https://docs.github.com/en/github/setting-up-and-managing-billing-and-payments-on-github/about-billing-for-github-actions
     runs-on: ubuntu-latest
     steps:
     - name: Checkout the repository
@@ -25,43 +23,32 @@ jobs:
       with:
         python-version: 3.9
     
-    - name: Set up Chrome and ChromeDriver
-      uses: browser-actions/setup-chrome@latest
-      with:
-        chrome-version: stable
-    
-    - name: Setup matching ChromeDriver and remove all other Chrome instances
+    - name: Install Chrome 142 and ChromeDriver 142
       run: |
-        # Find and DELETE ALL chromedriver binaries system-wide
-        echo "Finding and removing ALL chromedriver binaries..."
-        sudo find / -name "chromedriver" -type f -exec rm -f {} \; 2>/dev/null || true
-        
-        # Remove ALL chrome installations
-        echo "Removing old Chrome installations..."
-        sudo rm -rf /opt/google/chrome
-        sudo rm -rf /usr/local/share/chromium
-        sudo rm -rf /usr/local/share/chromedriver-linux64
-        sudo rm -rf /home/runner/work/_temp/*/chrome-linux64
-        sudo rm -f /usr/bin/google-chrome /usr/bin/google-chrome-stable /usr/bin/chromium-browser
+        # Remove any existing Chrome installations
         sudo apt-get remove -y chromium-browser google-chrome-stable 2>/dev/null || true
         
-        # Get the Chrome version we just installed
-        CHROME_PATH="/opt/hostedtoolcache/setup-chrome/chrome/stable/x64"
-        FULL_VERSION=$($CHROME_PATH/chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+')
-        echo "Chrome full version: $FULL_VERSION"
+        # Install Chrome 142 to match your Python code
+        CHROME_VERSION="142.0.6367.118"
+        echo "Installing Chrome version $CHROME_VERSION to match undetected-chromedriver version_main=142"
         
-        # Download matching ChromeDriver
-        echo "Downloading ChromeDriver for version $FULL_VERSION..."
-        wget -q "https://storage.googleapis.com/chrome-for-testing-public/${FULL_VERSION}/linux64/chromedriver-linux64.zip"
+        wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chrome-linux64.zip"
+        unzip -q chrome-linux64.zip
+        sudo mkdir -p /opt/chrome
+        sudo mv chrome-linux64 /opt/chrome/
+        sudo ln -sf /opt/chrome/chrome-linux64/chrome /usr/bin/google-chrome
+        
+        # Install matching ChromeDriver
+        wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chromedriver-linux64.zip"
         unzip -q chromedriver-linux64.zip
         sudo mv chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
         sudo chmod +x /usr/local/bin/chromedriver
         
-        # Verify versions
-        echo "ChromeDriver version:"
-        /usr/local/bin/chromedriver --version
+        # Verify
         echo "Chrome version:"
-        $CHROME_PATH/chrome --version
+        google-chrome --version
+        echo "ChromeDriver version:"
+        chromedriver --version
     
     - name: Install xvfb
       run: |
@@ -73,28 +60,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
-    - name: Clear Selenium cache and verify setup
-      run: |
-        # Clear any Selenium manager cache
-        rm -rf ~/.cache/selenium 2>/dev/null || true
-        rm -rf /root/.cache/selenium 2>/dev/null || true
-        
-        # Remove any pip-installed selenium drivers
-        pip uninstall -y selenium-manager 2>/dev/null || true
-        
-        # Verify again
-        echo "Final verification before running script:"
-        echo "ChromeDriver: $(command -v chromedriver) - $(chromedriver --version)"
-        echo "All chromedriver files:"
-        sudo find / -name "chromedriver" -type f 2>/dev/null || echo "None"
-    
     - name: Run Python script
       run: |
-        # Explicitly tell where Chrome binary is
-        export PATH="/usr/local/bin:/opt/hostedtoolcache/setup-chrome/chrome/stable/x64:$PATH"
-        export CHROME_BIN="/opt/hostedtoolcache/setup-chrome/chrome/stable/x64/chrome"
-        
-        echo "=== Running Script ==="
+        export PATH="/usr/local/bin:/opt/chrome/chrome-linux64:$PATH"
         xvfb-run --server-args="-screen 0 1920x1080x24" python ais_ship_tracker_weather.py
       env:
         AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
