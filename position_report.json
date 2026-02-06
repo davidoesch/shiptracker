@@ -1,14 +1,14 @@
 {
   "WeatherData": {
     "wetterzustand": "Leichte Regenschauer",
-    "luftdruck": 1013.4,
-    "windrichtung": 353,
-    "windstaerke": 30.5,
-    "bewoelkung": 73,
-    "lufttemperatur": 25.9,
+    "luftdruck": 1013.3,
+    "windrichtung": 352,
+    "windstaerke": 32.7,
+    "bewoelkung": 85,
+    "lufttemperatur": 25.5,
     "niederschlag": 0.2,
     "wassertemperatur": 27.2,
-    "wellenhoehe": 1.9
+    "wellenhoehe": 1.96
   },
   "timestamp_utc": "2026-02-06T07:49:27+00:00",
   "PositionReport": {
