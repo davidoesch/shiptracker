@@ -1183,23 +1183,23 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -79.5901,
-          9.6109
+          -79.61499,
+          9.63113
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "07.02.2026",
-        "timestamp_utc": "2026-02-07T21:13:27+00:00",
-        "cog": 15.0,
-        "sog": 0.8,
-        "navigational_status": 0,
+        "timestamp_utc": "2026-02-07T21:48:40+00:00",
+        "cog": 279.0,
+        "sog": 4.9,
+        "navigational_status": 8,
         "wetterzustand": "Leichte Regenschauer",
-        "luftdruck": 1014.3,
-        "windrichtung": 13.0,
-        "windstaerke": 31.4,
+        "luftdruck": 1014.5,
+        "windrichtung": 14.0,
+        "windstaerke": 31.2,
         "bewoelkung": 100.0,
-        "lufttemperatur": 26.8,
+        "lufttemperatur": 26.7,
         "wassertemperatur": 27.4,
         "niederschlag": 0.1,
         "wellenhoehe": 2.6
