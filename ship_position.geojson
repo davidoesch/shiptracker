@@ -1237,26 +1237,26 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -80.14177,
-          11.00415
+          -80.15876,
+          11.03496
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "13.02.2026",
-        "timestamp_utc": "2026-02-13T05:18:14+00:00",
-        "cog": 335.0,
-        "sog": 5.5,
+        "timestamp_utc": "2026-02-13T05:48:17+00:00",
+        "cog": 323.0,
+        "sog": 4.5,
         "navigational_status": 0,
-        "wetterzustand": "Leichte Regenschauer",
-        "luftdruck": 1013.3,
+        "wetterzustand": "Teilweise bew\u00f6lkt",
+        "luftdruck": 1012.7,
         "windrichtung": 34.0,
-        "windstaerke": 36.2,
+        "windstaerke": 36.0,
         "bewoelkung": 72.0,
         "lufttemperatur": 26.4,
         "wassertemperatur": 27.1,
-        "niederschlag": 0.1,
-        "wellenhoehe": 2.6
+        "niederschlag": 0.0,
+        "wellenhoehe": 2.52
       }
     }
   ]
