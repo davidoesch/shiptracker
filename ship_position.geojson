@@ -1291,23 +1291,23 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -86.9269,
-          20.56944
+          -86.94949,
+          20.51525
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "17.02.2026",
-        "timestamp_utc": "2026-02-17T14:36:45+00:00",
-        "cog": 235.9,
-        "sog": 4.7,
-        "navigational_status": 0,
-        "wetterzustand": "Teilweise bew\u00f6lkt",
-        "luftdruck": 1018.4,
-        "windrichtung": 64.0,
-        "windstaerke": 13.2,
-        "bewoelkung": 51.0,
-        "lufttemperatur": 25.0,
+        "timestamp_utc": "2026-02-17T15:45:05+00:00",
+        "cog": 126.4,
+        "sog": 0.1,
+        "navigational_status": 1,
+        "wetterzustand": "\u00dcberwiegend klar",
+        "luftdruck": 1018.8,
+        "windrichtung": 66.0,
+        "windstaerke": 15.8,
+        "bewoelkung": 43.0,
+        "lufttemperatur": 25.5,
         "wassertemperatur": 26.5,
         "niederschlag": 0.0,
         "wellenhoehe": 0.2
