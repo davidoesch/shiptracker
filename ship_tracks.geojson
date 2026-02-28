@@ -6181,14 +6181,18 @@
           [
             -79.5133,
             25.5067
+          ],
+          [
+            -79.304,
+            25.9225
           ]
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "start_time": "2025-10-17T08:39:46+00:00",
-        "end_time": "2026-02-28T14:57:21+00:00",
-        "total_points": 1544,
+        "end_time": "2026-02-28T17:35:06+00:00",
+        "total_points": 1545,
         "track_type": "AIS_position_reports"
       }
     }
