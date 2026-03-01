@@ -1,10 +1,10 @@
 {
   "WeatherData": {
     "wetterzustand": "Sonnig",
-    "luftdruck": 1017.4,
-    "windrichtung": 321,
-    "windstaerke": 4.6,
-    "bewoelkung": 2,
+    "luftdruck": 1017.5,
+    "windrichtung": 320,
+    "windstaerke": 5.6,
+    "bewoelkung": 3,
     "lufttemperatur": 23.0,
     "niederschlag": 0.0,
     "wassertemperatur": 24.3,
