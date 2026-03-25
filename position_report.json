@@ -1,28 +1,28 @@
 {
   "WeatherData": {
-    "wetterzustand": "Teilweise bew\u00f6lkt",
-    "luftdruck": 1030.0,
-    "windrichtung": 116,
-    "windstaerke": 13.2,
-    "bewoelkung": 64,
-    "lufttemperatur": 15.0,
+    "wetterzustand": "Bedeckt",
+    "luftdruck": 1030.2,
+    "windrichtung": 113,
+    "windstaerke": 13.7,
+    "bewoelkung": 84,
+    "lufttemperatur": 15.1,
     "niederschlag": 0.0,
-    "wassertemperatur": 16.4,
-    "wellenhoehe": 1.46
+    "wassertemperatur": 16.6,
+    "wellenhoehe": 1.52
   },
-  "timestamp_utc": "2026-03-25T08:33:23+00:00",
+  "timestamp_utc": "2026-03-25T09:48:13+00:00",
   "PositionReport": {
-    "Cog": 85.6,
+    "Cog": 75.2,
     "CommunicationState": 999,
-    "Latitude": 38.33924,
-    "Longitude": -29.90305,
+    "Latitude": 38.36571,
+    "Longitude": -29.71673,
     "MessageID": 999,
     "NavigationalStatus": 0,
     "PositionAccuracy": true,
     "Raim": true,
     "RateOfTurn": 999,
     "RepeatIndicator": 999,
-    "Sog": 7.3,
+    "Sog": 7.5,
     "Spare": 999,
     "SpecialManoeuvreIndicator": 999,
     "Timestamp": 999,
@@ -34,8 +34,8 @@
     "MMSI": "244528000",
     "MMSI_String": "244528000",
     "ShipName": "",
-    "latitude": 38.33924,
-    "longitude": -29.90305,
-    "time_utc": "2026-03-25T08:33:23+00:00"
+    "latitude": 38.36571,
+    "longitude": -29.71673,
+    "time_utc": "2026-03-25T09:48:13+00:00"
   }
 }
