@@ -1,20 +1,20 @@
 {
   "WeatherData": {
     "wetterzustand": "Teilweise bew\u00f6lkt",
-    "luftdruck": 1032.0,
-    "windrichtung": 60,
-    "windstaerke": 10.8,
-    "bewoelkung": 54,
-    "lufttemperatur": 13.9,
+    "luftdruck": 1032.2,
+    "windrichtung": 57,
+    "windstaerke": 12.0,
+    "bewoelkung": 72,
+    "lufttemperatur": 14.5,
     "niederschlag": 0.0,
     "wassertemperatur": 16.7,
-    "wellenhoehe": 1.06
+    "wellenhoehe": 1.0
   },
-  "timestamp_utc": "2026-04-02T08:17:23+00:00",
+  "timestamp_utc": "2026-04-02T09:20:22+00:00",
   "PositionReport": {
     "Cog": 360,
     "CommunicationState": 999,
-    "Latitude": 38.53273,
+    "Latitude": 38.53275,
     "Longitude": -28.62484,
     "MessageID": 999,
     "NavigationalStatus": 5,
@@ -34,8 +34,8 @@
     "MMSI": "244528000",
     "MMSI_String": "244528000",
     "ShipName": "",
-    "latitude": 38.53273,
+    "latitude": 38.53275,
     "longitude": -28.62484,
-    "time_utc": "2026-04-02T08:17:23+00:00"
+    "time_utc": "2026-04-02T09:20:22+00:00"
   }
 }
