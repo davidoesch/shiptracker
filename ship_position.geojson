@@ -1723,26 +1723,26 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -25.01077,
-          39.82208
+          -24.99816,
+          39.98568
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "04.04.2026",
-        "timestamp_utc": "2026-04-04T12:05:58+00:00",
-        "cog": 1.0,
-        "sog": 6.5,
+        "timestamp_utc": "2026-04-04T13:31:28+00:00",
+        "cog": 6.0,
+        "sog": 7.3,
         "navigational_status": 0,
-        "wetterzustand": "Teilweise bew\u00f6lkt",
-        "luftdruck": 1022.6,
-        "windrichtung": 259.0,
-        "windstaerke": 20.5,
-        "bewoelkung": 73.0,
+        "wetterzustand": "Bedeckt",
+        "luftdruck": 1022.3,
+        "windrichtung": 253.0,
+        "windstaerke": 23.3,
+        "bewoelkung": 86.0,
         "lufttemperatur": 15.4,
         "wassertemperatur": 15.8,
         "niederschlag": 0.0,
-        "wellenhoehe": 2.64
+        "wellenhoehe": 2.76
       }
     }
   ]
