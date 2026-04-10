@@ -1804,26 +1804,26 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -9.36588,
-          48.31923
+          -9.19156,
+          48.36248
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "10.04.2026",
-        "timestamp_utc": "2026-04-10T11:42:00+00:00",
-        "cog": 77.0,
-        "sog": 6.4,
+        "timestamp_utc": "2026-04-10T12:45:57+00:00",
+        "cog": 79.0,
+        "sog": 6.8,
         "navigational_status": 0,
         "wetterzustand": "Bedeckt",
-        "luftdruck": 1014.6,
-        "windrichtung": 188.0,
-        "windstaerke": 47.2,
+        "luftdruck": 1013.6,
+        "windrichtung": 192.0,
+        "windstaerke": 49.0,
         "bewoelkung": 100.0,
-        "lufttemperatur": 11.6,
+        "lufttemperatur": 11.8,
         "wassertemperatur": 12.4,
         "niederschlag": 0.0,
-        "wellenhoehe": 4.38
+        "wellenhoehe": 4.14
       }
     }
   ]
