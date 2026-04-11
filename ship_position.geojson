@@ -1831,26 +1831,26 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -6.33814,
-          49.01209
+          -6.18765,
+          49.04839
         ]
       },
       "properties": {
         "mmsi": 244528000,
         "date": "11.04.2026",
-        "timestamp_utc": "2026-04-11T06:53:38+00:00",
-        "cog": 56.0,
-        "sog": 6.0,
+        "timestamp_utc": "2026-04-11T07:45:57+00:00",
+        "cog": 72.0,
+        "sog": 7.9,
         "navigational_status": 0,
         "wetterzustand": "Sonnig",
-        "luftdruck": 1008.2,
+        "luftdruck": 1008.9,
         "windrichtung": 262.0,
-        "windstaerke": 49.3,
-        "bewoelkung": 0.0,
-        "lufttemperatur": 9.2,
+        "windstaerke": 51.5,
+        "bewoelkung": 3.0,
+        "lufttemperatur": 8.5,
         "wassertemperatur": 11.9,
         "niederschlag": 0.0,
-        "wellenhoehe": 5.0
+        "wellenhoehe": 4.84
       }
     }
   ]
